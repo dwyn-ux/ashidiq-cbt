@@ -477,7 +477,8 @@
         <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
           <div class="flex items-center gap-4">
              <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
-             <h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian">MAPEL</h2>
+             <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian">MAPEL</h2>
+             <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
           </div>
           <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
              <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
@@ -498,7 +499,8 @@
                   <i class="fas fa-check text-white text-5xl"></i>
                 </div>
                 <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
-                <p class="text-slate-300 text-lg mb-8">Klik tombol di bawah untuk menyelesaikan sesi ujian kamu.</p>
+                <p class="text-slate-300 text-lg mb-2">Pastikan sudah klik Submit/Kirim di Google Form.</p>
+                <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
                 <button onclick="selesaiMengerjakan()" 
                         class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
                   <i class="fas fa-flag-checkered"></i> SELESAI MENGERJAKAN
@@ -675,7 +677,8 @@
                 idUjianAktif = sessionStorage.getItem('cbt_id_ujian'); // ✅ Restore ID ujian
                 document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
                 document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
-                document.getElementById('judul-mapel-ujian').innerText = savedMapel; 
+                document.getElementById('judul-mapel-ujian').innerText = savedMapel;
+                document.getElementById('identitas-ujian').innerText = res.nama + ' (' + res.nis + ' - ' + res.kelas + ')';
                 document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal'); 
                 jalankanTimer(); 
                 startDeteksiSubmit(); // ✅ Restore deteksi submit
@@ -1056,8 +1059,9 @@
 
           document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
           document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
-          document.getElementById('judul-mapel-ujian').innerText = res.mapel; 
-          document.getElementById('iframe-soal').src = res.link; 
+          document.getElementById('judul-mapel-ujian').innerText = res.mapel;
+          document.getElementById('identitas-ujian').innerText = sessionUser.nama + ' (' + sessionUser.nis + ' - ' + sessionUser.kelas + ')';
+          document.getElementById('iframe-soal').src = res.link;
           jalankanTimer();
           startDeteksiSubmit(); // ✅ Mulai deteksi submit form
           paksaFullscreen(); 
@@ -1122,6 +1126,7 @@
     }
 
     async function selesaiMengerjakan() {
+      if(!confirm('Yakin sudah klik Submit/Kirim di Google Form?\n\nSesi berakhir dan tidak bisa kembali.')) return;
       const btn = document.querySelector('#overlay-selesai button');
       if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...'; btn.disabled = true; }
 
@@ -1147,7 +1152,7 @@
       try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
       lepasKunciAPK();
 
-      // Tampilkan pesan sukses lalu reload ke halaman awal siswa
+      // Tampilkan pesan sukses lalu kembali ke menu utama
       document.getElementById('overlay-selesai').innerHTML = `
         <div class="text-center px-8">
           <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
@@ -1161,6 +1166,19 @@
       setTimeout(() => {
         // Kembali ke halaman pilih mapel (tidak logout)
         document.getElementById('overlay-selesai').style.display = 'none';
+        document.getElementById('overlay-selesai').innerHTML = `<div class="text-center px-8">
+          <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
+            <i class="fas fa-check text-white text-5xl"></i>
+          </div>
+          <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
+          <p class="text-slate-300 text-lg mb-2">Pastikan sudah klik Submit/Kirim di Google Form.</p>
+          <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
+          <button onclick="selesaiMengerjakan()"
+                  class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
+            <i class="fas fa-flag-checkered"></i> SELESAI MENGERJAKAN
+          </button>
+          <p class="text-slate-500 text-xs mt-6">Timer masih berjalan sampai kamu klik tombol ini</p>
+        </div>`;
         document.getElementById('siswa-tahap-ujian').classList.add('hidden');
         document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
         loadMapelSiswa(sessionUser.kelas);
