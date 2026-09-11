@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CBT | SMP Unggulan Ashidiq</title>
+  
+  <link rel="icon" type="image/png" href="https://smpmuashidiq.sch.id/assets/logo%20smp.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+    .view-section { display: none !important; }
+    #view-login.active, #view-siswa.active, #view-admin.active { display: flex !important; } 
+    .admin-tab-content { display: none; }
+    .admin-tab-content.active { display: block; }
+    .iframe-wrapper { width: 100%; height: calc(100vh - 120px); border-radius: 0.75rem; overflow: hidden; background: white; border: 1px solid #e2e8f0; position: relative;}
+    .iframe-wrapper iframe { width: 100%; height: calc(100% + 80px); border: none; margin-bottom: -80px; } /* ✅ Crop bagian bawah untuk hide footer */
+    /* ✅ Overlay putih untuk hide footer Google Form */
+    .iframe-wrapper::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: white; z-index: 10; pointer-events: none; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    /* OVERLAY PELANGGARAN */
+    #violation-warning { position: fixed; top: 20px; right: 20px; z-index: 9999; background: linear-gradient(135deg, #dc2626, #ef4444); color: white; padding: 16px 24px; border-radius: 16px; box-shadow: 0 8px 32px rgba(220, 38, 38, 0.4); font-weight: 900; display: none; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    
+    /* LOCK SCREEN */
+    #lock-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); z-index: 99999; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px); }
+    #lock-screen h1 { font-size: 3rem; font-weight: 900; color: #ef4444; text-align: center; text-transform: uppercase; margin-bottom: 20px; text-shadow: 2px 2px 20px rgba(239, 68, 68, 0.5); }
+    #lock-screen p { color: white; font-size: 1.2rem; margin-bottom: 30px; text-align: center; max-width: 600px; line-height: 1.6; }
+    #lock-screen input { padding: 16px 24px; font-size: 1.2rem; border: 3px solid #ef4444; border-radius: 12px; text-align: center; font-weight: 900; background: white; color: #1e293b; letter-spacing: 4px; text-transform: uppercase; outline: none; }
+    #lock-screen button { margin-top: 20px; padding: 16px 48px; background: #ef4444; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 1.1rem; cursor: pointer; transition: all 0.3s; }
+    #lock-screen button:hover { background: #dc2626; transform: scale(1.05); }
+
+    /* HOLOGRAM TIMER HABIS */
+    #time-blocker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220, 38, 38, 0.95); z-index: 50; display: none; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
+    #time-blocker h1 { font-size: 3rem; font-weight: 900; color: white; text-align: center; text-transform: uppercase; line-height: 1.2; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+    .pulse-arrow { font-size: 5rem; color: white; margin-top: 20px; animation: bounce 1s infinite; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(20px); } }
+
+    /* NILAI TAB */
+    .nilai-card { transition: all .2s; }
+    .nilai-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.10); }
+    .badge-kelas { display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 10px; border-radius: 999px; }
+  </style>
+</head>
+<body class="text-slate-800 relative">
+
+  <!-- ===================== LOGIN ===================== -->
+  <section id="view-login" class="view-section active min-h-screen items-center justify-center bg-slate-900 bg-[url('https://images.unsplash.com/photo-1555116505-38ab61800975?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center bg-blend-overlay">
+    <div class="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-white/20">
+      <div class="text-center mb-6">
+        <img src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo Sekolah" class="w-24 mx-auto mb-3 drop-shadow-lg">
+        <h1 class="text-2xl font-bold text-slate-800">CBT Ashidiq</h1>
+        <p class="text-slate-500 text-sm font-medium">Portal Ujian Terpadu</p>
+      </div>
+      <div class="flex p-1 bg-slate-100 rounded-lg mb-6">
+        <button id="tab-siswa" onclick="setLoginRole('siswa')" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600 transition">Santri</button>
+        <button id="tab-admin" onclick="setLoginRole('admin')" class="flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition">Admin / Proktor</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1" id="label-user">Nomor Induk Siswa (NIS)</label>
+          <input type="text" id="username" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Masukkan ID">
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">Password</label>
+          <input type="password" id="password" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Masukkan Password">
+        </div>
+        <div id="login-error" class="hidden bg-red-100 text-red-600 p-3 rounded-xl text-sm font-bold text-center"></div>
+        <button id="btn-login" onclick="prosesLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg transition-all tracking-wider">MASUK SISTEM</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ADMIN ===================== -->
+  <section id="view-admin" class="view-section h-screen w-full bg-slate-50 flex overflow-hidden">
+    
+    <aside id="admin-sidebar" style="display: none;" class="w-64 bg-slate-900 text-white flex-col shadow-2xl z-30 shrink-0 h-full">
+      <div class="p-6 border-b border-slate-800 text-center relative">
+        <img src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo" class="w-12 mx-auto mb-2 opacity-80">
+        <h2 class="font-bold text-lg tracking-tighter italic">CBT DASHBOARD</h2>
+        <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1" id="admin-name">Administrator</p>
+      </div>
+      <nav class="p-4 flex-grow space-y-1 overflow-y-auto">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-2">DASHBOARD</p>
+        <button onclick="switchAdminTab('tab-monitoring')" id="btn-tab-monitoring" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium bg-blue-600/20 text-blue-400"><i class="fas fa-desktop w-4"></i> Live Monitor</button>
+        <button onclick="switchAdminTab('tab-unlock-codes')" id="btn-tab-unlock-codes" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800 text-red-400"><i class="fas fa-lock-open w-4"></i> Kode Unlock</button>
+        <button onclick="switchAdminTab('tab-data-santri')" id="btn-tab-data-santri" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-users-cog w-4"></i> Data Santri</button>
+        <button onclick="switchAdminTab('tab-data-ujian')" id="btn-tab-data-ujian" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-clipboard-list w-4"></i> Data Mapel</button>
+
+        <!-- ✅ MENU REKAP NILAI BARU -->
+        <!-- Rekap Nilai pindah ke Google Form guru (mode SQL manual) -->
+        
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">BERKAS & DOKUMEN</p>
+        <button onclick="switchAdminTab('tab-cetak-kartu')" id="btn-tab-cetak-kartu" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium text-amber-400"><i class="fas fa-id-badge w-4"></i> Cetak Kartu</button>
+        <button onclick="switchAdminTab('tab-dokumen')" id="btn-tab-dokumen" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium text-amber-400 hover:bg-slate-800"><i class="fas fa-folder-open w-4"></i> Cetak Dokumen</button>
+        
+        <div id="menu-superadmin">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">MANAJEMEN (SUPERADMIN)</p>
+            <button onclick="switchAdminTab('tab-input-santri')" id="btn-tab-input-santri" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-user-plus w-4"></i> Input Santri</button>
+            <button onclick="switchAdminTab('tab-input-mapel')" id="btn-tab-input-mapel" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-calendar-alt w-4"></i> Input Mapel</button>
+            <button onclick="switchAdminTab('tab-generate')" id="btn-tab-generate" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-link w-4"></i> Link Form</button>
+            <button onclick="switchAdminTab('tab-setting')" id="btn-tab-setting" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-school w-4"></i> Setting</button>
+        </div>
+      </nav>
+      <div class="p-4 border-t border-slate-800">
+        <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl text-xs font-black transition flex justify-center items-center gap-2"><i class="fas fa-power-off"></i> LOGOUT</button>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+      <header class="bg-slate-900 text-white p-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center gap-4">
+          <button onclick="toggleSidebar('admin-sidebar')" class="text-slate-300 hover:text-white transition p-2 rounded hover:bg-slate-800"><i class="fas fa-bars text-xl"></i></button>
+          <div class="font-bold italic">CBT DASHBOARD</div>
+        </div>
+        <button onclick="logout()" class="text-red-400 font-bold text-sm">KELUAR</button>
+      </header>
+      
+      <div class="p-6 md:p-8 max-w-6xl mx-auto w-full">
+
+        <!-- TAB MONITORING -->
+        <div id="tab-monitoring" class="admin-tab-content active">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Monitoring Live</h2>
+          <div class="grid grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Santri</p><p class="text-3xl font-black text-slate-800" id="stat-santri">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Ujian Aktif</p><p class="text-3xl font-black text-slate-800" id="stat-mapel">0</p>
+            </div>
+          </div>
+          <div class="flex gap-2 mb-4">
+              <button onclick="refreshAdminData()" id="btn-refresh" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md text-sm hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Refresh Monitoring</button>
+              <button onclick="bersihkanLog()" id="btn-clear-log" class="bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-md text-sm hover:bg-red-600 transition"><i class="fas fa-trash-alt mr-1"></i> Bersihkan Log Monitor</button>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b">
+                <tr><th class="px-6 py-4">Waktu</th><th class="px-6 py-4">Nama (NIS)</th><th class="px-6 py-4">Mapel</th><th class="px-6 py-4 text-center">Status / Aksi</th></tr>
+              </thead>
+              <tbody id="table-log-body" class="divide-y divide-slate-50"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ✅ TAB KODE UNLOCK -->
+        <div id="tab-unlock-codes" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Kode Unlock Ujian</h2>
+
+          <!-- Kode Universal Aktif -->
+          <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-8 mb-6 text-white text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-yellow-400 to-green-400" id="unlock-timer-bar" style="transition: width linear;"></div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🔑 KODE UNLOCK AKTIF SEKARANG</p>
+            <div class="text-6xl font-black tracking-[0.3em] text-green-400 font-mono my-4" id="universal-unlock-code">------</div>
+            <div class="flex items-center justify-center gap-3 mt-4">
+              <p class="text-sm text-slate-400">Berganti dalam <span id="unlock-countdown" class="text-yellow-400 font-black text-lg">--:--</span></p>
+              <button onclick="copyUnlockCode()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                <i class="fas fa-copy"></i> Salin
+              </button>
+            </div>
+            <p class="text-xs text-slate-500 mt-4">Berikan kode ini ke siswa yang ujiannya terkunci</p>
+          </div>
+
+          <!-- Setting -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="font-black text-slate-700 mb-4 flex items-center gap-2"><i class="fas fa-clock text-blue-500"></i> Interval Rotasi Kode</h3>
+              <div class="flex gap-3 items-end">
+                <div class="flex-1">
+                  <label class="text-[10px] font-bold text-slate-400 mb-1 block">ROTASI TIAP (MENIT)</label>
+                  <input type="number" id="set-unlock-interval" value="5" min="1" max="60"
+                         class="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-3xl text-center bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <button onclick="saveUnlockInterval()" class="bg-blue-600 text-white px-5 py-4 rounded-xl font-black shadow hover:bg-blue-700 transition shrink-0">
+                  <i class="fas fa-save mr-1"></i> Simpan
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-2 font-bold">💡 Default 5 menit. Kode lama tidak bisa dipakai lagi setelah rotasi.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="font-black text-slate-700 mb-4 flex items-center gap-2"><i class="fas fa-shield-alt text-red-500"></i> Batas Pelanggaran</h3>
+              <div class="flex gap-3 items-end">
+                <div class="flex-1">
+                  <label class="text-[10px] font-bold text-slate-400 mb-1 block">TERKUNCI SETELAH (KALI)</label>
+                  <input type="number" id="set-violation-limit" value="5" min="1" max="20"
+                         class="w-full p-4 border-2 border-red-200 rounded-xl font-black text-3xl text-center bg-red-50 focus:ring-2 focus:ring-red-500 outline-none">
+                </div>
+                <button onclick="saveViolationLimit()" class="bg-red-600 text-white px-5 py-4 rounded-xl font-black shadow hover:bg-red-700 transition shrink-0">
+                  <i class="fas fa-save mr-1"></i> Simpan
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-2 font-bold">💡 Siswa terkunci otomatis setelah ganti tab/minimize sebanyak X kali.</p>
+            </div>
+          </div>
+
+          <!-- Info cara kerja -->
+          <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex gap-4 items-start">
+            <i class="fas fa-info-circle text-blue-500 text-xl mt-0.5 shrink-0"></i>
+            <div class="text-sm text-blue-800">
+              <p class="font-bold mb-1">Cara Kerja Sistem Unlock Baru:</p>
+              <ol class="list-decimal list-inside space-y-1 text-xs">
+                <li>Sistem generate <b>1 kode universal</b> yang berlaku untuk semua siswa</li>
+                <li>Kode <b>rotasi otomatis</b> tiap X menit (bisa disetting)</li>
+                <li>Siswa terkunci → minta kode ke proktor/pengawas</li>
+                <li>Proktor lihat kode di halaman ini → berikan ke siswa</li>
+                <li>Siswa input kode → ujian terbuka, counter pelanggaran direset</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB DATA SANTRI -->
+        <div id="tab-data-santri" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Data Santri</h2>
+          <div class="flex gap-2 mb-4">
+             <button onclick="loadDataSantri()" id="btn-load-santri" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Muat Ulang</button>
+             <button id="btn-auto-pass" onclick="bulkGenerate('generateAllPasswords')" class="bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-amber-600 transition"><i class="fas fa-key mr-1"></i> Auto Generate Password Kosong</button>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b"><tr><th class="px-6 py-4">NIS</th><th class="px-6 py-4">Nama Lengkap</th><th class="px-6 py-4">Kelas</th><th class="px-6 py-4">Password</th></tr></thead>
+              <tbody id="table-santri-body" class="divide-y divide-slate-50"><tr><td colspan="4" class="p-6 text-center text-slate-400">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB DATA UJIAN — ✅ Kolom Nilai ditambah -->
+        <div id="tab-data-ujian" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Data Ujian (Mapel)</h2>
+          <div class="flex justify-between items-center mb-4">
+             <div class="flex gap-2">
+                 <button onclick="loadDataUjian()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Muat Ulang</button>
+                 <button id="btn-auto-token" onclick="bulkGenerate('generateAllTokens')" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-purple-700 transition"><i class="fas fa-ticket-alt mr-1"></i> Auto Generate Token Kosong</button>
+             </div>
+             <select id="filter-mapel" onchange="loadDataUjian()" class="bg-white border border-slate-200 px-4 py-2 rounded-lg font-bold text-sm text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
+                 <option value="aktif">🟢 Tampilkan Aktif Saja</option>
+                 <option value="semua">✅ Tampilkan Semua Ujian</option>
+             </select>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b">
+                <tr>
+                  <th class="px-4 py-4">ID</th>
+                  <th class="px-4 py-4">Mapel (Kelas)</th>
+                  <th class="px-4 py-4">Jadwal & Durasi</th>
+                  <th class="px-4 py-4">Token</th>
+                  <th class="px-4 py-4">Status</th>
+                  <th class="px-4 py-4 text-center">Form</th>
+                  <th class="px-4 py-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="table-ujian-body" class="divide-y divide-slate-50"><tr><td colspan="7" class="p-6 text-center text-slate-400">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB CETAK KARTU -->
+        <div id="tab-cetak-kartu" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Cetak Kartu Ujian</h2>
+          <div class="bg-white p-10 rounded-2xl shadow-sm border border-slate-200 max-w-xl text-center mx-auto mt-10">
+            <i class="fas fa-id-badge text-6xl text-amber-400 mb-4"></i>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Print Kartu Peserta Ujian</h3>
+            <p class="text-slate-500 text-sm mb-8">Sistem akan menarik seluruh data santri untuk dijadikan kartu ujian yang rapi pada kertas A4.</p>
+            <button onclick="cetakKartu()" id="btn-cetak" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-700 transition tracking-wider"><i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG</button>
+          </div>
+        </div>
+
+        <!-- TAB DOKUMEN -->
+        <div id="tab-dokumen" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Dokumen Administrasi</h2>
+          
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 border-l-4 border-l-green-500">
+             <h3 class="font-black text-slate-700 mb-4 italic uppercase"><i class="fas fa-check-square text-green-500 mr-2"></i> Ceklis Progres Persiapan Ujian</h3>
+             <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="progress-checklist">
+                <label class="flex items-center gap-3 text-sm font-bold text-slate-600 cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded text-green-500 focus:ring-green-500" onchange="saveChecklist()" id="chk-1"> 1. Input Santri</label>
+                <label class="flex items-center gap-3 text-sm font-bold text-slate-600 cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded text-green-500 focus:ring-green-500" onchange="saveChecklist()" id="chk-2"> 2. Input Mapel</label>
+                <label class="flex items-center gap-3 text-sm font-bold text-slate-600 cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded text-green-500 focus:ring-green-500" onchange="saveChecklist()" id="chk-3"> 3. Generate Soal</label>
+                <label class="flex items-center gap-3 text-sm font-bold text-slate-600 cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded text-green-500 focus:ring-green-500" onchange="saveChecklist()" id="chk-4"> 4. Cetak Berkas</label>
+             </div>
+          </div>
+
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl">
+             <i class="fas fa-folder-open text-4xl text-blue-500 mb-4 block"></i>
+             <h3 class="font-bold text-slate-700 mb-2">Daftar Hadir & Berita Acara</h3>
+             <select id="sel-dokumen-mapel" class="w-full p-4 border rounded-xl mb-4 bg-slate-50 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"><option>Memuat Mapel...</option></select>
+             <button onclick="cetakBeritaAcara()" id="btn-cetak-dok" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition tracking-wider"><i class="fas fa-print mr-2"></i> GENERATE DOKUMEN</button>
+          </div>
+        </div>
+
+        <!-- TAB INPUT SANTRI -->
+        <div id="tab-input-santri" class="admin-tab-content">
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl">
+            <h2 class="text-xl font-black text-slate-800 mb-6 uppercase italic">Input Santri Baru</h2>
+            <div class="space-y-4">
+              <input type="number" id="inp-nis" class="w-full p-3 border rounded-xl focus:ring-2 outline-none" placeholder="NIS">
+              <input type="text" id="inp-nama" class="w-full p-3 border rounded-xl focus:ring-2 outline-none" placeholder="Nama Lengkap">
+              <div class="grid grid-cols-2 gap-4">
+                <input type="text" id="inp-kelas" class="w-full p-3 border rounded-xl focus:ring-2 outline-none" placeholder="Kelas (Cth: 7A)">
+                <div class="flex gap-2"><input type="text" id="inp-pass" class="w-full p-3 border rounded-xl font-mono text-sm" placeholder="Password"><button onclick="magicCode('inp-pass', 6)" class="bg-slate-100 px-3 rounded-xl border hover:bg-slate-200"><i class="fas fa-magic"></i></button></div>
+              </div>
+              <button onclick="simpanData('DATA_SANTRI')" id="btn-save-santri" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg mt-4 transition hover:bg-blue-700">SIMPAN DATA</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB INPUT MAPEL -->
+        <div id="tab-input-mapel" class="admin-tab-content">
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl">
+            <h2 class="text-xl font-black text-slate-800 mb-6 uppercase italic">Tambah Jadwal Ujian</h2>
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <input type="text" id="inp-idujian" class="w-full p-3 border rounded-xl uppercase" placeholder="ID Ujian">
+                <div>
+                  <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (Pisahkan dengan koma)</label>
+                  <input type="text" id="inp-kelastarget" class="w-full p-3 border rounded-xl uppercase" placeholder="Contoh: 7A,7B,8A atau 7,8,9">
+                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
+                </div>
+              </div>
+              <input type="text" id="inp-namamapel" class="w-full p-3 border rounded-xl" placeholder="Nama Mata Pelajaran">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">TANGGAL UJIAN</label><input type="date" id="inp-tgl" class="w-full p-3 border rounded-xl text-sm outline-none focus:ring-2"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">JAM BUKA</label><input type="time" id="inp-mulai" class="w-full p-3 border rounded-xl text-sm outline-none focus:ring-2"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">JAM TUTUP</label><input type="time" id="inp-selesai" class="w-full p-3 border rounded-xl text-sm outline-none focus:ring-2"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-[10px] font-bold text-blue-500 ml-1">DURASI (MENIT)</label><input type="number" id="inp-durasi" value="90" class="w-full p-3 border rounded-xl font-bold bg-blue-50 focus:ring-2 outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">STATUS</label><select id="inp-status" class="w-full p-3 border rounded-xl bg-white"><option value="Aktif">Aktif</option><option value="Nonaktif">Nonaktif</option></select></div>
+              </div>
+              <div class="flex gap-2">
+                  <input type="text" id="inp-token" class="w-full p-3 border rounded-xl font-mono uppercase text-center font-bold" placeholder="Token">
+                  <button onclick="magicCode('inp-token', 5)" class="bg-slate-100 px-3 rounded-xl border hover:bg-slate-200"><i class="fas fa-ticket-alt"></i></button>
+              </div>
+              <button onclick="simpanData('MAPEL_AKTIF')" id="btn-save-mapel" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg mt-4 transition hover:bg-blue-700">AKTIFKAN JADWAL</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB GENERATE -->
+        <div id="tab-generate" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Link Google Form</h2>
+
+          <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 mb-6 flex gap-3 items-start">
+            <i class="fas fa-info-circle text-blue-500 text-xl shrink-0 mt-0.5"></i>
+            <div class="text-sm text-blue-800">
+              <p class="font-bold mb-1">Mode manual (SQL):</p>
+              <ul class="list-disc list-inside space-y-1 text-xs">
+                <li>Guru buat Google Form dari akun masing-masing, nilai masuk ke guru via Form tersebut.</li>
+                <li>Form wajib punya 3 field: <b>NIS</b>, <b>NAMA LENGKAP</b>, <b>KELAS</b>.</li>
+                <li>Tempel URL Form di bawah (boleh pakai placeholder <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NIS</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NAMA</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_KELAS</code> untuk prefill otomatis).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-2xl">
+            <h3 class="font-bold text-slate-700 mb-4"><i class="fas fa-link text-blue-500 mr-2"></i> Tautkan Form ke Ujian</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-[10px] font-bold text-slate-400 ml-1">ID UJIAN</label>
+                <input type="text" id="linkform-id" placeholder="ID Ujian (Cth: UJ-01)" class="w-full p-3 border rounded-xl uppercase font-bold outline-none">
+              </div>
+              <div>
+                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM</label>
+                <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/..." class="w-full p-3 border rounded-xl outline-none text-sm">
+              </div>
+              <button onclick="simpanLinkForm()" id="btn-linkform" class="w-full bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition hover:bg-blue-700"><i class="fas fa-save mr-2"></i> SIMPAN LINK</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB SETTING -->
+        <div id="tab-setting" class="admin-tab-content">
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl border-l-4 border-l-slate-800">
+            <h2 class="text-xl font-black text-slate-800 mb-2 uppercase italic">Setting Sekolah & Akun</h2>
+            <div class="space-y-4">
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">NAMA SEKOLAH / INSTANSI</label>
+              <input type="text" id="set-sekolah" class="w-full p-3 border rounded-xl" placeholder="Nama Sekolah"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">NAMA KEPALA / PIMPINAN</label>
+              <input type="text" id="set-kepala" class="w-full p-3 border rounded-xl" placeholder="Nama Kepala Sekolah"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">NIP / NBM KEPALA</label>
+              <input type="text" id="set-nbm" class="w-full p-3 border rounded-xl" placeholder="NBM / NIP"></div>
+              
+              <div class="border-t pt-4 mt-4">
+                  <p class="text-xs font-bold text-red-500 mb-2">AKUN PENGUASA RUANG (PROKTOR)</p>
+                  <div class="flex gap-2">
+                      <input type="text" id="set-u-proktor" class="w-full p-3 border rounded-xl text-sm" placeholder="Username Proktor">
+                      <input type="text" id="set-p-proktor" class="w-full p-3 border rounded-xl text-sm" placeholder="Password Proktor">
+                  </div>
+              </div>
+
+              <button onclick="simpanSetting()" id="btn-save-setting" class="w-full bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg mt-4 transition hover:bg-slate-900"><i class="fas fa-save mr-2"></i> UPDATE SETTING</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end inner content -->
+    </main>
+  </section>
+
+  <!-- ===================== SISWA ===================== -->
+  <section id="view-siswa" class="view-section min-h-screen flex bg-slate-100 overflow-hidden">
+    
+    <!-- ✅ VIOLATION WARNING -->
+    <div id="violation-warning">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-exclamation-triangle text-2xl"></i>
+        <div>
+          <div class="text-xs font-bold opacity-80">PERINGATAN PELANGGARAN!</div>
+          <div class="text-sm">Jangan ganti tab/minimize! <span id="violation-count-text">0</span>/<span id="violation-limit-text">5</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ LOCK SCREEN -->
+    <div id="lock-screen">
+      <i class="fas fa-lock text-8xl text-red-500 mb-6"></i>
+      <h1>UJIAN TERKUNCI!</h1>
+      <p>Anda telah melanggar aturan ujian dengan berganti tab/minimize sebanyak <span id="lock-violation-count">5</span> kali. Ujian Anda dikunci. Hubungi proktor/pengawas untuk mendapatkan kode unlock.</p>
+      <div class="mt-6">
+        <input type="text" id="unlock-code-input" placeholder="KODE UNLOCK" maxlength="8">
+        <button onclick="unlockExam()"><i class="fas fa-unlock-alt mr-2"></i> UNLOCK UJIAN</button>
+      </div>
+      <p class="text-xs text-slate-400 mt-6">Kode unlock dapat dilihat di dashboard proktor/admin</p>
+    </div>
+
+    <aside id="siswa-sidebar" style="display: none;" class="w-64 bg-white border-r p-6 flex-col shadow-2xl shrink-0 z-40 h-full absolute md:relative">
+      <!-- ✅ Tombol tutup sidebar -->
+      <button onclick="bukaTutupMenuSiswa()" class="absolute top-3 right-3 w-9 h-9 bg-slate-100 hover:bg-red-100 hover:text-red-500 rounded-full flex items-center justify-center text-slate-500 transition md:hidden"><i class="fas fa-times"></i></button>
+      <div class="text-center mb-8 border-b border-slate-100 pb-8">
+        <div class="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center text-3xl mx-auto mb-4 font-black shadow-xl" id="avatar-initial">S</div>
+        <h3 class="font-black text-xl text-slate-800 uppercase tracking-tighter" id="siswa-nama">NAMA SISWA</h3>
+        <p class="text-[10px] font-black text-blue-600 bg-blue-50 py-1.5 px-4 rounded-full mt-2 inline-block tracking-widest">KELAS <span id="siswa-kelas">...</span></p>
+      </div>
+      <div class="space-y-2 flex-grow">
+        <button onclick="location.reload()" class="w-full p-4 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold flex items-center gap-4 transition text-slate-600"><i class="fas fa-home"></i> Beranda</button>
+      </div>
+      <button onclick="logout()" class="w-full p-4 bg-red-50 text-red-600 hover:bg-red-100 rounded-2xl font-black flex items-center justify-center gap-4 transition mt-auto"><i class="fas fa-sign-out-alt"></i> KELUAR</button>
+    </aside>
+    <!-- ✅ Backdrop untuk nutup sidebar saat diklik di luar (mobile) -->
+    <div id="siswa-sidebar-backdrop" onclick="bukaTutupMenuSiswa()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:35;"></div>
+
+    <main class="flex-1 p-6 relative overflow-y-auto">
+      <div id="siswa-tahap-verifikasi" class="max-w-3xl mx-auto mt-6">
+        <div class="bg-blue-600 text-white p-6 rounded-t-3xl shadow-xl flex justify-between items-center">
+          <div><h2 class="text-2xl font-black italic tracking-tighter">DAFTAR UJIAN AKTIF</h2></div>
+          <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
+        </div>
+        <div id="list-mapel" class="bg-white p-8 rounded-b-3xl shadow-2xl border-x border-b border-slate-200"><p class="text-center py-10 text-slate-400 font-medium">Memuat...</p></div>
+      </div>
+      
+      <div id="siswa-tahap-ujian" class="hidden h-full flex flex-col">
+        <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
+          <div class="flex items-center gap-4">
+             <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
+             <h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian">MAPEL</h2>
+          </div>
+          <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
+             <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
+          </div>
+        </div>
+
+        <div class="iframe-wrapper shadow-2xl relative">
+            <iframe id="iframe-soal" src="" allowfullscreen></iframe>
+            <div id="time-blocker">
+                <h1>WAKTU UJIAN HABIS!</h1>
+                <p class="text-white text-xl mt-4 font-bold tracking-widest bg-black/50 px-6 py-2 rounded-full">SCROLL KE BAWAH & KLIK SUBMIT!</p>
+                <i class="fas fa-arrow-down pulse-arrow"></i>
+            </div>
+            <!-- ✅ OVERLAY SELESAI SUBMIT -->
+            <div id="overlay-selesai" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); z-index:60; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(8px);">
+              <div class="text-center px-8">
+                <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
+                  <i class="fas fa-check text-white text-5xl"></i>
+                </div>
+                <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
+                <p class="text-slate-300 text-lg mb-8">Klik tombol di bawah untuk menyelesaikan sesi ujian kamu.</p>
+                <button onclick="selesaiMengerjakan()" 
+                        class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
+                  <i class="fas fa-flag-checkered"></i> SELESAI MENGERJAKAN
+                </button>
+                <p class="text-slate-500 text-xs mt-6">Timer masih berjalan sampai kamu klik tombol ini</p>
+              </div>
+            </div>
+        </div>
+        <button onclick="tampilkanOverlaySelesai()" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-lg transition tracking-wider"><i class="fas fa-flag-checkered mr-2"></i> SUDAH SUBMIT — SELESAIKAN UJIAN</button>
+        <p class="text-center text-xs text-slate-400 mt-2">Klik setelah menekan Submit/Kirim di Google Form. Nilai masuk ke guru via Form.</p>
+      </div>
+    </main>
+  </section>
+
+  <!-- MODAL EDIT MAPEL -->
+  <div id="modal-edit-mapel" class="hidden fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center backdrop-blur-sm">
+     <div class="bg-white p-8 rounded-3xl w-full max-w-lg mx-4 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-black italic uppercase text-slate-800">Edit Ujian: <span id="edit-id-text" class="text-blue-600"></span></h2>
+            <button onclick="document.getElementById('modal-edit-mapel').classList.add('hidden')" class="text-slate-400 hover:text-red-500"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <input type="hidden" id="edit-id">
+        <div class="space-y-4">
+           <!-- Nama Mapel -->
+           <div>
+             <label class="text-[10px] font-bold text-slate-400 ml-1">NAMA MATA PELAJARAN</label>
+             <input type="text" id="edit-namamapel" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50" placeholder="Nama Mata Pelajaran">
+           </div>
+           <!-- Kelas Target -->
+           <div>
+             <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (pisah koma)</label>
+             <input type="text" id="edit-kelas" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 uppercase" placeholder="Contoh: 7,8,9 atau 7A,7B">
+             <p class="text-[9px] text-blue-500 mt-1 font-bold ml-1">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
+           </div>
+           <!-- Tanggal -->
+           <div><label class="text-[10px] font-bold text-slate-400 ml-1">TANGGAL UJIAN</label><input type="date" id="edit-tgl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50"></div>
+           <!-- Jam -->
+           <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">JAM BUKA</label><input type="time" id="edit-mulai" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">JAM TUTUP</label><input type="time" id="edit-selesai" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50"></div>
+           </div>
+           <!-- Durasi & Status -->
+           <div class="grid grid-cols-2 gap-4">
+              <div><label class="text-[10px] font-bold text-blue-500 ml-1">DURASI (MENIT)</label><input type="number" id="edit-durasi" class="w-full p-3 border rounded-xl bg-blue-50 font-bold focus:ring-2 outline-none"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">STATUS UJIAN</label>
+                  <select id="edit-status" class="w-full p-3 border rounded-xl bg-white focus:ring-2 outline-none bg-slate-50">
+                      <option value="Aktif">Aktif</option>
+                      <option value="Nonaktif">Nonaktif</option>
+                  </select>
+              </div>
+           </div>
+            <!-- Token -->
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">TOKEN UJIAN</label>
+              <div class="flex gap-2">
+                <input type="text" id="edit-token" class="w-full p-3 border rounded-xl font-mono uppercase text-center font-bold focus:ring-2 outline-none" placeholder="Token">
+                <button onclick="magicCode('edit-token', 5)" class="bg-slate-100 px-3 rounded-xl border hover:bg-slate-200 shrink-0"><i class="fas fa-ticket-alt"></i></button>
+              </div>
+            </div>
+            <!-- Link Google Form manual -->
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM</label>
+              <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/...">
+            </div>
+           <button id="btn-simpan-edit" onclick="simpanEditMapel()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black mt-2 shadow-lg hover:bg-blue-700 transition tracking-wider">SIMPAN PERUBAHAN</button>
+        </div>
+     </div>
+  </div>
+
+  <script>
+    // Backend SQL: ?api= override (APK aset offline) > backend/api.php relatif > placeholder.
+    const API_URL = (() => {
+      try {
+        const q = new URLSearchParams(location.search).get('api');
+        if (q && q.indexOf('https://') === 0) return q;
+        if (location.protocol.indexOf('http') === 0) return new URL('backend/api.php', location.href).toString();
+      } catch(e) {}
+      return "https://GANTI-DOMAIN/cbt/backend/api.php";
+    })();
+    
+    let currentRole = 'siswa';
+    let sessionUser = null;
+    let mapelAktif = null;
+    let idUjianAktif = null; // legacy GAS, tidak dipakai di mode SQL
+    let timerInterval = null;
+
+    function esc(s) {
+      return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function jsq(s) {
+      return (s == null ? '' : String(s)).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+    function authToken() { try { const s = JSON.parse(sessionStorage.getItem('cbt_session') || '{}'); return s.token || ''; } catch(e) { return ''; } }
+
+    async function callAPI(payload) {
+      try {
+        const body = Object.assign({}, payload, { token: authToken() });
+        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+        const textData = await res.text();
+        let j;
+        try { j = JSON.parse(textData); }
+        catch(e) {
+            return { sukses: false, pesan: "Respon server tidak valid." };
+        }
+        if (j.kode === 'UNAUTHORIZED') { sessionStorage.clear(); location.reload(); return { sukses: false, pesan: 'Sesi habis.' }; }
+        return j;
+      } catch (err) {
+          return { sukses: false, pesan: "Koneksi ke server gagal! Cek URL API." };
+      }
+    }
+
+    function toggleSidebar(id) { 
+        const s = document.getElementById(id); 
+        s.style.display = s.style.display === 'none' ? 'flex' : 'none'; 
+    }
+    function bukaTutupMenuSiswa() { 
+        const m = document.getElementById('siswa-sidebar'); 
+        const bd = document.getElementById('siswa-sidebar-backdrop');
+        const show = (m.style.display === 'none' || m.style.display === '');
+        m.style.display = show ? 'flex' : 'none';
+        if(bd) bd.style.display = show ? 'block' : 'none';
+    }
+    function switchView(id) { 
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active')); 
+        document.getElementById(id).classList.add('active'); 
+    }
+    
+    function switchAdminTab(id) {
+      document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      const btns = ['monitoring','data-santri','data-ujian','cetak-kartu','dokumen','input-santri','input-mapel','generate','setting','unlock-codes'];
+      btns.forEach(b => {
+          let btn = document.getElementById('btn-tab-'+b);
+          if(!btn) return;
+          if(id === 'tab-'+b) { btn.classList.add('bg-blue-600/20','text-blue-400'); btn.classList.remove('hover:bg-slate-800'); } 
+          else { btn.classList.remove('bg-blue-600/20','text-blue-400'); btn.classList.add('hover:bg-slate-800'); }
+      });
+      if(id === 'tab-monitoring') refreshAdminData();
+      if(id === 'tab-data-santri') loadDataSantri();
+      if(id === 'tab-data-ujian') loadDataUjian();
+      if(id === 'tab-dokumen') loadDataDokumen();
+      if(id === 'tab-unlock-codes') { loadViolationSetting(); }
+    }
+
+    function setLoginRole(r) { 
+        currentRole = r; 
+        document.getElementById('label-user').innerText = r == 'siswa' ? 'Nomor Induk Siswa (NIS)' : 'Username Admin / Proktor';
+        document.getElementById('tab-siswa').className = r == 'siswa' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
+        document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
+    }
+
+    window.onload = function() {
+      loadChecklist(); 
+      const saved = sessionStorage.getItem('cbt_session');
+      if(saved) {
+        const res = JSON.parse(saved); 
+        sessionUser = res; 
+        currentRole = res.role;
+        if(res.role === 'admin' || res.role === 'proktor') { 
+            document.getElementById('admin-name').innerText = res.nama; 
+            if(res.role === 'proktor') { 
+                document.getElementById('menu-superadmin').style.display = 'none'; 
+                document.getElementById('btn-auto-pass').style.display = 'none'; 
+                document.getElementById('btn-auto-token').style.display = 'none'; 
+            }
+            switchView('view-admin'); 
+            switchAdminTab('tab-monitoring'); 
+        } else { 
+            document.getElementById('siswa-nama').innerText = res.nama; 
+            document.getElementById('siswa-kelas').innerText = res.kelas; 
+            document.getElementById('avatar-initial').innerText = res.nama.charAt(0).toUpperCase(); 
+            switchView('view-siswa'); 
+            loadMapelSiswa(res.kelas); 
+            startCheckingStatus(); 
+            let savedMapel = sessionStorage.getItem('cbt_mapel_aktif');
+            if(savedMapel) { 
+                mapelAktif = savedMapel; 
+                idUjianAktif = sessionStorage.getItem('cbt_id_ujian'); // ✅ Restore ID ujian
+                document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
+                document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
+                document.getElementById('judul-mapel-ujian').innerText = savedMapel; 
+                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal'); 
+                jalankanTimer(); 
+                startDeteksiSubmit(); // ✅ Restore deteksi submit
+                paksaFullscreen(); 
+            }
+        }
+      }
+    };
+
+    function loadChecklist() { for(let i=1; i<=4; i++) { if(localStorage.getItem('chk-'+i) === 'true') document.getElementById('chk-'+i).checked = true; } }
+    function saveChecklist() { for(let i=1; i<=4; i++) { localStorage.setItem('chk-'+i, document.getElementById('chk-'+i).checked); } }
+
+    async function prosesLogin() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      if(!u || !p) return alert("Isi data form login!");
+      const btn = document.getElementById('btn-login'); 
+      btn.innerText = "LOADING..."; btn.disabled = true;
+      const res = await callAPI({ action: 'login', username: u, password: p, role: currentRole });
+      btn.innerText = "MASUK SISTEM"; btn.disabled = false;
+      if(res.sukses) { sessionStorage.setItem('cbt_session', JSON.stringify(res)); location.reload(); } 
+      else { document.getElementById('login-error').innerText = res.pesan; document.getElementById('login-error').classList.remove('hidden'); }
+    }
+
+    async function logout() {
+        if(!confirm("Yakin ingin keluar sistem?")) return;
+        try { await callAPI({ action: 'logout' }); } catch(e) {}
+        lepasKunciAPK();
+        sessionStorage.clear(); location.reload();
+    }
+
+    // =============================================
+    // ADMIN FUNCTIONS
+    // =============================================
+
+    async function refreshAdminData() {
+      document.getElementById('btn-refresh').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      const res = await callAPI({ action: 'getDashboard' });
+      document.getElementById('stat-santri').innerText = res.totalSantri || '0'; 
+      document.getElementById('stat-mapel').innerText = res.totalMapel || '0';
+      let html = '';
+      if(res.logKehadiran && res.logKehadiran.length > 0) {
+        res.logKehadiran.forEach(l => {
+          let c = l.status === 'Selesai' ? 'text-green-600 bg-green-50' : (l.status === 'Di-Kick' ? 'text-red-600 bg-red-50' : (l.status === 'Terlambat' ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'));
+          let btnKick = (l.status === 'Sedang Mengerjakan') ? `<button onclick="kickSiswa('${jsq(l.nis)}', '${jsq(l.mapel)}')" class="bg-red-500 text-white px-3 py-1 rounded shadow text-[10px] ml-2 font-bold hover:bg-red-600 transition">KICK</button>` : '';
+          html += `<tr class="border-b hover:bg-slate-50 transition"><td class="px-6 py-4 text-xs font-mono text-slate-400">${esc(l.waktu)}</td><td class="px-6 py-4 font-bold">${esc(l.nama)} <span class="text-[10px] text-slate-400">(${esc(l.nis)})</span></td><td class="px-6 py-4 text-slate-600">${esc(l.mapel)}</td><td class="px-6 py-4 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black ${c}">${esc(l.status)}</span>${btnKick}</td></tr>`;
+        });
+      } else { html = '<tr><td colspan="4" class="p-8 text-center text-slate-400">Belum ada aktivitas.</td></tr>'; }
+      document.getElementById('table-log-body').innerHTML = html; 
+      document.getElementById('btn-refresh').innerHTML = '<i class="fas fa-sync mr-1"></i> Refresh Monitoring';
+    }
+
+    async function bersihkanLog() {
+      if(!confirm("Arsipkan semua log ke sheet LOG_ARSIP dan kosongkan layar monitoring?\n\nData tidak hilang, pindah ke LOG_ARSIP.")) return;
+      const btn = document.getElementById('btn-clear-log');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menghapus...'; btn.disabled = true;
+      const res = await callAPI({ action: 'clearLog' });
+      alert(res.pesan); 
+      btn.innerHTML = '<i class="fas fa-trash-alt mr-1"></i> Bersihkan Log Monitor'; btn.disabled = false;
+      if(res.sukses) refreshAdminData();
+    }
+
+    async function kickSiswa(nis, mapel) { 
+        if(confirm("Yakin ingin menendang keluar siswa ini?")) { await callAPI({ action: 'forceLogout', nis: nis, mapel: mapel }); refreshAdminData(); } 
+    }
+
+    async function loadDataSantri() {
+      const res = await callAPI({ action: 'getSantriData' });
+      let html = '';
+      if(Array.isArray(res) && res.length > 0) {
+          res.forEach(s => { html += `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(s.nis)}</td><td class="px-6 py-4 font-bold text-slate-700">${esc(s.nama)}</td><td class="px-6 py-4">${esc(s.kelas)}</td><td class="px-6 py-4 font-mono font-bold ${s.adaPass ? 'text-green-600' : 'text-red-500'}">${s.adaPass ? 'TERISI' : 'KOSONG'}</td></tr>`; });
+      }
+      document.getElementById('table-santri-body').innerHTML = html;
+    }
+
+    // ✅ loadDataUjian — tambah kolom Nilai dengan tombol per baris
+    async function loadDataUjian() {
+      const tbody = document.getElementById('table-ujian-body');
+      tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat...</td></tr>';
+      const res = await callAPI({ action: 'getAllMapel' }); 
+      let html = '';
+      const filterType = document.getElementById('filter-mapel').value;
+      // Guard: res harus array
+      if(Array.isArray(res) && res.length > 0) {
+          res.forEach(m => {
+            try {
+              if(filterType === 'aktif' && m.status !== 'Aktif') return; 
+              let warnStatus = m.status == 'Aktif' ? 'text-blue-600' : 'text-slate-400';
+              // ✅ Konversi semua ke string dulu supaya .replace tidak error kalau angka
+              let mapelStr = (m.mapel != null ? m.mapel : '').toString();
+              let kelasStr = (m.kelas != null ? m.kelas : '').toString();
+              let tokenStr = (m.token != null ? m.token : '').toString();
+              let btnEdit = (sessionUser && sessionUser.role === 'admin') ?
+                  `<button onclick="bukaEditMapel('${jsq(m.id)}','${jsq(m.tgl)}','${jsq(m.mulai)}','${jsq(m.selesai)}','${jsq(m.status)}',${m.durasi},'${jsq(mapelStr)}','${jsq(kelasStr)}','${jsq(tokenStr)}','${jsq(m.form_url||'')}')" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold hover:bg-amber-600 transition uppercase tracking-wider"><i class="fas fa-edit"></i> Edit</button>` :
+                  `<span class="text-[10px] text-slate-400 font-bold bg-slate-100 px-3 py-1 rounded">Locked</span>`;
+
+              let btnNilai = m.form_url
+                  ? `<a href="${esc(m.form_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold transition uppercase tracking-wider"><i class="fas fa-table"></i> Form</a>`
+                  : `<span class="text-[10px] text-slate-300 font-bold bg-slate-50 px-3 py-1 rounded border">Belum ada</span>`;
+
+              html += `<tr class="border-b hover:bg-slate-50">
+                <td class="px-4 py-3 font-mono text-xs font-bold text-slate-500">${esc(m.id)}</td>
+                <td class="px-4 py-3 font-bold text-slate-700">${esc(mapelStr)}<br><span class="text-[10px] text-slate-400">Kelas: ${esc(kelasStr)}</span></td>
+                <td class="px-4 py-3 text-xs font-mono text-slate-700 font-bold">${esc(m.tgl)}<br><span class="text-blue-500">${esc(m.mulai)} s/d ${esc(m.selesai)} (${esc(m.durasi)}m)</span></td>
+                <td class="px-4 py-3 font-mono font-bold text-purple-600">${esc(tokenStr)}</td>
+                <td class="px-4 py-3 text-xs font-black ${warnStatus}">${esc(m.status)}</td>
+                <td class="px-4 py-3 text-center">${btnNilai}</td>
+                <td class="px-4 py-3 text-center">${btnEdit}</td>
+              </tr>`;
+            } catch(rowErr) {
+              console.error('Error render baris mapel:', rowErr, m);
+            }
+          });
+      } else if(res && res.pesan) {
+        // Backend error
+        html = `<tr><td colspan="7" class="p-6 text-center text-red-400 font-bold">Error: ${esc(res.pesan)}</td></tr>`;
+      }
+      tbody.innerHTML = html || '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada mapel yang aktif saat ini.</td></tr>';
+    }
+
+    // Mode SQL manual: nilai di Google Form guru, tidak ada rekap pusat.
+    async function simpanLinkForm() {
+      const id = document.getElementById('linkform-id').value.trim().toUpperCase();
+      const url = document.getElementById('linkform-url').value.trim();
+      if(!id || !url) return alert('Isi ID ujian dan URL Form!');
+      if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('URL harus Google Form (https://docs.google.com/forms/...)!');
+      const btn = document.getElementById('btn-linkform');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
+      const res = await callAPI({ action: 'setFormUrl', idUjian: id, formUrl: url });
+      alert(res.pesan); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
+      if(res.sukses) { document.getElementById("linkform-id").value = ""; document.getElementById("linkform-url").value = ""; }
+    }
+
+    function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl) {
+        document.getElementById('edit-id').value        = id;
+        document.getElementById('edit-id-text').innerText = id;
+        document.getElementById('edit-namamapel').value = mapel  || '';
+        document.getElementById('edit-kelas').value     = kelas  || '';
+        document.getElementById('edit-tgl').value       = tgl    || '';
+        document.getElementById('edit-mulai').value     = mulai  || '';
+        document.getElementById('edit-selesai').value   = selesai || '';
+        document.getElementById('edit-status').value    = status || 'Aktif';
+        document.getElementById('edit-durasi').value    = durasi || 90;
+        document.getElementById('edit-token').value     = token  || '';
+        document.getElementById('edit-formurl').value   = formUrl || '';
+        document.getElementById('modal-edit-mapel').classList.remove('hidden');
+    }
+
+    async function simpanEditMapel() {
+        const btn = document.getElementById('btn-simpan-edit'); 
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
+        const payload = { 
+          action:    'editMapel', 
+          id:        document.getElementById('edit-id').value,
+          mapel:     document.getElementById('edit-namamapel').value,
+          kelas:     document.getElementById('edit-kelas').value,
+          tgl:       document.getElementById('edit-tgl').value, 
+          mulai:     document.getElementById('edit-mulai').value, 
+          selesai:   document.getElementById('edit-selesai').value, 
+          status:    document.getElementById('edit-status').value, 
+          durasi:    document.getElementById('edit-durasi').value,
+          examToken: document.getElementById('edit-token').value,
+          formUrl:   document.getElementById('edit-formurl').value
+        };
+        const res = await callAPI(payload);
+        alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
+        if(res.sukses) { document.getElementById('modal-edit-mapel').classList.add('hidden'); loadDataUjian(); }
+    }
+
+    async function simpanData(sheet) {
+        let data = [];
+        let btnId = sheet == 'DATA_SANTRI' ? 'btn-save-santri' : 'btn-save-mapel';
+        
+        if(sheet == 'DATA_SANTRI') { 
+            data = [
+                document.getElementById('inp-nis').value,
+                document.getElementById('inp-nama').value,
+                document.getElementById('inp-kelas').value,
+                document.getElementById('inp-pass').value
+            ]; 
+        } else { 
+            // ✅ Kirim sebagai array, bukan string CSV
+            // Kolom: ID_UJIAN, NAMA_MAPEL, KELAS_TARGET, TOKEN, STATUS, LINK_FORM, TGL, MULAI, SELESAI, DURASI
+            data = [
+                document.getElementById('inp-idujian').value,
+                document.getElementById('inp-namamapel').value,
+                document.getElementById('inp-kelastarget').value,  // ✅ Tetap satu string "11A,11B"
+                document.getElementById('inp-token').value,
+                document.getElementById('inp-status').value,
+                '',  // LINK_FORM (kosong dulu, nanti diisi saat generate form)
+                document.getElementById('inp-tgl').value,
+                document.getElementById('inp-mulai').value,
+                document.getElementById('inp-selesai').value,
+                document.getElementById('inp-durasi').value
+            ];
+        }
+        
+        document.getElementById(btnId).innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        const res = await callAPI({ action: 'tambahData', sheet: sheet, dataArray: data });
+        alert(res.pesan); 
+        if(res.sukses) location.reload();
+    }
+
+    async function simpanSetting() {
+        const btn = document.getElementById('btn-save-setting'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        const payload = { action: 'updateSetting', namaSekolah: document.getElementById('set-sekolah').value, kepala: document.getElementById('set-kepala').value, nbm: document.getElementById('set-nbm').value, uProktor: document.getElementById('set-u-proktor').value, pProktor: document.getElementById('set-p-proktor').value };
+        const res = await callAPI(payload);
+        alert(res.pesan); btn.innerHTML = '<i class="fas fa-save mr-2"></i> UPDATE SETTING';
+    }
+
+    async function loadDataDokumen() {
+       document.getElementById('sel-dokumen-mapel').innerHTML = '<option>Memuat data ujian...</option>';
+       const res = await callAPI({ action: 'getDokumenData' }); 
+       window.cbtDokumenData = res; 
+       let html = '';
+        if(res.mapel && res.mapel.length > 0) { res.mapel.forEach(m => { html += `<option value="${esc(m.id)}">${esc(m.nama)} (Kelas: ${esc(m.kelas)}) - Tgl: ${esc(m.tgl)}</option>`; }); } 
+       else { html = '<option value="">Belum ada jadwal aktif</option>'; }
+       document.getElementById('sel-dokumen-mapel').innerHTML = html;
+       if(!document.getElementById('set-sekolah').value) document.getElementById('set-sekolah').value = res.settings.sekolah;
+       if(!document.getElementById('set-kepala').value) document.getElementById('set-kepala').value = res.settings.kepala;
+       if(!document.getElementById('set-nbm').value) document.getElementById('set-nbm').value = res.settings.nbm;
+    }
+
+    function cetakBeritaAcara() {
+       const mapelId = document.getElementById('sel-dokumen-mapel').value;
+       if(!mapelId || !window.cbtDokumenData) return alert("Pilih mapel atau tunggu data selesai dimuat!");
+       const data = window.cbtDokumenData; 
+       const mapel = data.mapel.find(m => m.id === mapelId); 
+       if(!mapel) return;
+       let targetKelas = mapel.kelas.split(',').map(k => k.trim().toUpperCase());
+       let peserta = data.santri.filter(s => { let kSiswa = s.kelas.toString().trim().toUpperCase(); return targetKelas.includes(kSiswa) || targetKelas.includes(kSiswa.charAt(0)); });
+        let html = `<html><head><title>Dokumen Ujian - ${esc(mapel.nama)}</title><style>body{font-family:'Times New Roman',Times,serif;padding:40px;font-size:12pt;color:black;}.kop{text-align:center;border-bottom:4px double black;padding-bottom:10px;margin-bottom:30px;}.kop h1{margin:0;font-size:18pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;}.judul{text-align:center;font-weight:bold;font-size:14pt;text-decoration:underline;margin-bottom:30px;letter-spacing:1px;}.isi{text-align:justify;line-height:1.6;margin-bottom:30px;}.table-info{margin-left:20px;margin-bottom:20px;line-height:1.6;}.table-info td{vertical-align:top;}.table-peserta{border-collapse:collapse;margin-top:20px;margin-bottom:30px;width:100%;font-size:11pt;}.table-peserta th,.table-peserta td{border:1px solid black;padding:8px 12px;}.table-peserta th{background-color:#f0f0f0;}.ttd{width:100%;margin-top:50px;page-break-inside:avoid;}.ttd td{width:33%;text-align:center;vertical-align:bottom;height:120px;line-height:1.3;}@media print{.page-break{page-break-before:always;}}</style></head><body onload="window.print()">
+        <div class="kop"><h1>PANITIA UJIAN BERBASIS KOMPUTER (CBT)</h1><h1>${esc(data.settings.sekolah)}</h1></div>
+        <div class="judul">BERITA ACARA PELAKSANAAN UJIAN</div>
+        <div class="isi"><p>Pada hari ini, tanggal <b>${esc(mapel.tgl)}</b>, telah diselenggarakan Ujian Berbasis Komputer (CBT) untuk mata pelajaran <b>${esc(mapel.nama)}</b> dari pukul <b>${esc(mapel.mulai)}</b> sampai dengan <b>${esc(mapel.selesai)}</b>.</p><table class="table-info"><tr><td width="200">Sekolah / Instansi</td><td>: <b>${esc(data.settings.sekolah)}</b></td></tr><tr><td>Jumlah Peserta Terdaftar</td><td>: <b>${peserta.length} Siswa</b></td></tr><tr><td>Kelas Sasaran</td><td>: <b>${esc(mapel.kelas)}</b></td></tr></table><p>Demikian berita acara ini dibuat dengan sesungguhnya dan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.</p></div>
+        <table class="ttd"><tr><td>Pengawas Ruang<br><br><br><br><br>(................................................)</td><td>Proktor Ujian<br><br><br><br><br>(................................................)</td><td>Mengetahui, Pimpinan/Kepala<br><br><br><br><br><b><u>${esc(data.settings.kepala)}</u></b><br>NBM/NIP: ${esc(data.settings.nbm)}</td></tr></table>
+        <div class="page-break"></div>
+        <div class="kop"><h1>DAFTAR HADIR PESERTA UJIAN CBT</h1><h1>${esc(data.settings.sekolah)}</h1></div>
+        <table style="margin-bottom:20px;font-weight:bold;font-size:11pt;"><tr><td width="150">Mata Pelajaran</td><td>: ${esc(mapel.nama)}</td></tr><tr><td>Tanggal Pelaksanaan</td><td>: ${esc(mapel.tgl)}</td></tr><tr><td>Kelas Target</td><td>: ${esc(mapel.kelas)}</td></tr></table>
+        <table class="table-peserta"><thead><tr><th width="5%">No</th><th width="15%">NIS</th><th width="45%">Nama Peserta</th><th width="15%">Kelas</th><th width="20%">Tanda Tangan</th></tr></thead><tbody>${peserta.map((p,i)=>`<tr><td style="text-align:center;">${i+1}</td><td style="text-align:center;">${esc(p.nis)}</td><td>${esc(p.nama)}</td><td style="text-align:center;">${esc(p.kelas)}</td><td>${i%2==0?(i+1)+'. ':'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+(i+1)+'. '}</td></tr>`).join('')}</tbody></table>
+       <table class="ttd" style="margin-top:30px;"><tr><td></td><td></td><td>Pengawas / Proktor<br><br><br><br><br>(................................................)</td></tr></table>
+       </body></html>`;
+       let printWin = window.open('','','width=900,height=800'); printWin.document.write(html); printWin.document.close();
+    }
+
+    function cetakKartu() {
+      const btn = document.getElementById('btn-cetak'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING...'; btn.disabled = true;
+      callAPI({action:'getSantriData'}).then(res => {
+         btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false;
+         if(!Array.isArray(res)) { alert('Gagal memuat data santri: ' + (res.pesan || 'error')); return; }
+         let html = `<html><head><title>Kartu Ujian</title><style>body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eee;padding:20px;}.print-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:auto;}.card{background:#fff;border:2px dashed #333;padding:20px;border-radius:12px;}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}.header h2{margin:0;font-size:18px;text-transform:uppercase;}.header p{margin:5px 0 0 0;font-size:12px;}.row{margin-bottom:8px;font-size:14px;display:flex;}.label{width:80px;font-weight:bold;}.pass-box{background:#f0f0f0;padding:5px 10px;font-family:monospace;font-size:16px;font-weight:bold;letter-spacing:2px;border:1px solid #ccc;display:inline-block;}@media print{body{background:#fff;padding:0;}.print-container{gap:10px;}.card{page-break-inside:avoid;border:1px solid #000;}}</style></head><body onload="window.print()"><div class="print-container">`;
+         res.forEach(s => { html += `<div class="card"><div class="header"><h2>KARTU PESERTA CBT</h2><p>SMP UNGGULAN ASHIDIQ</p></div><div class="row"><div class="label">NIS</div>: &nbsp;${esc(s.nis)}</div><div class="row"><div class="label">Nama</div>: &nbsp;<b>${esc(s.nama)}</b></div><div class="row"><div class="label">Kelas</div>: &nbsp;${esc(s.kelas)}</div><div class="row" style="margin-top:15px;align-items:center;"><div class="label">Password</div>: &nbsp;<div class="pass-box">${esc(s.pass)}</div></div></div>`; });
+         html += `</div></body></html>`;
+         let printWin = window.open('','','width=900,height=600'); printWin.document.write(html); printWin.document.close();
+      });
+    }
+
+    function magicCode(id, len) { const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let r=""; for(let i=0;i<len;i++) r+=c.charAt(Math.floor(Math.random()*c.length)); document.getElementById(id).value=r; }
+    
+    async function bulkGenerate(action) { 
+        if(!confirm("Yakin ingin melanjutkan?")) return; 
+        const res = await callAPI({ action: action }); 
+        alert(res.pesan); 
+        if(action==='generateAllPasswords') loadDataSantri(); 
+        if(action==='generateAllTokens') loadDataUjian(); 
+    }
+    
+    // =============================================
+    // SISWA LOGIC & TIMER
+    // =============================================
+
+    function startCheckingStatus() {
+        setInterval(async () => {
+            if(currentRole==='siswa'&&sessionUser) {
+                const res = await callAPI({action:'heartbeat',nis:sessionUser.nis});
+                if(res.status==='Kicked') { alert("🚨 DIBERHENTIKAN ADMIN 🚨"); sessionStorage.clear(); location.reload(); return; }
+                if(res.endTime && !sessionStorage.getItem('cbt_timer_end')) {
+                  sessionStorage.setItem('cbt_timer_end', String(res.endTime));
+                  jalankanTimer();
+                }
+            }
+        }, 20000);
+    }
+
+    async function loadMapelSiswa(k) {
+      const res = await callAPI({ action: 'getMapel', kelas: k }); 
+      let html = '';
+      if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; } 
+      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); }
+      document.getElementById('list-mapel').innerHTML = html;
+    }
+
+    async function mulaiUjian(id) {
+      const t = document.getElementById('tk-'+id).value.trim();
+      const err = document.getElementById('err-'+id); err.classList.add('hidden');
+      if(!t) { err.innerText = "*Token belum diisi!"; err.classList.remove('hidden'); return; }
+      const res = await callAPI({ action: 'mulaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, idUjian: id, inputToken: t });
+      if(res.sukses) { 
+          mapelAktif = res.mapel; 
+          idUjianAktif = id; // ✅ Simpan ID ujian asli (bukan nama mapel)
+          sessionStorage.setItem('cbt_mapel_aktif', res.mapel); 
+          sessionStorage.setItem('cbt_id_ujian', id); // ✅ Simpan ID untuk restore
+          sessionStorage.setItem('cbt_link_soal', res.link);
+
+          // endTime dari server (LOG_KEHADIRAN), client hanya display
+          if(res.endTime) sessionStorage.setItem('cbt_timer_end', String(res.endTime));
+          else if(!sessionStorage.getItem('cbt_timer_end')) {
+            const durasi = parseInt(res.durasi) || 90;
+            sessionStorage.setItem('cbt_timer_end', String(new Date().getTime() + durasi * 60 * 1000));
+          }
+
+          document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
+          document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
+          document.getElementById('judul-mapel-ujian').innerText = res.mapel; 
+          document.getElementById('iframe-soal').src = res.link; 
+          jalankanTimer();
+          startDeteksiSubmit(); // ✅ Mulai deteksi submit form
+          paksaFullscreen(); 
+      } else { err.innerText = "* " + res.pesan; err.classList.remove('hidden'); }
+    }
+
+    // =============================================
+    // MODE SQL MANUAL: deteksi otomatis GAS dimatikan.
+    // Siswa klik tombol manual "SUDAH SUBMIT" -> tampilkanOverlaySelesai().
+    // Nilai masuk ke guru via Google Form masing-masing.
+    // =============================================
+
+    let deteksiSubmitInterval = null; // legacy GAS, tidak dipakai di mode SQL
+
+    function startDeteksiSubmit() {
+      window.addEventListener('message', onFormMessage);
+      const iframe = document.getElementById('iframe-soal');
+      iframe.addEventListener('load', function() {
+        try {
+          const u = iframe.contentWindow.location.href;
+          if (u.includes('/formResponse') || u.includes('submitted=true')) setTimeout(tampilkanOverlaySelesai, 800);
+        } catch(e) {}
+      });
+    }
+
+    function onFormMessage(e) {
+      try {
+        if(!e.data) return;
+        const d = (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)).toLowerCase();
+        if (d.includes('formresponse') || d.includes('submitted') || d.includes('telah direkam') || d.includes('has been recorded') || d.includes('already responded')) tampilkanOverlaySelesai();
+      } catch(err) {}
+    }
+
+    function tampilkanOverlaySelesai() {
+      console.log('🎉 tampilkanOverlaySelesai() called');
+      
+      // Jangan tampilkan kalau sudah selesai atau belum mulai ujian
+      const ujianSection = document.getElementById('siswa-tahap-ujian');
+      if(!ujianSection || ujianSection.classList.contains('hidden')) {
+        console.warn('⚠️ Overlay NOT shown - exam section is hidden');
+        return;
+      }
+      
+      const overlay = document.getElementById('overlay-selesai');
+      if(overlay.style.display === 'flex') {
+        console.warn('⚠️ Overlay already visible - skipping');
+        return;
+      }
+      
+      console.log('✅ Showing overlay "Selesai Mengerjakan"');
+      overlay.style.display = 'flex';
+
+      // ✅ Stop polling
+      if(deteksiSubmitInterval) {
+        clearInterval(deteksiSubmitInterval);
+        deteksiSubmitInterval = null;
+      }
+
+      // Hentikan deteksi violation — siswa sudah submit, wajar kalau fokus kemana-mana
+      isExamLocked = false; // Jangan lock lagi
+      pelanggaran  = 0;
+    }
+
+    async function selesaiMengerjakan() {
+      const btn = document.querySelector('#overlay-selesai button');
+      if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...'; btn.disabled = true; }
+
+      // Catat selesai ke backend
+      let telat = false;
+      if(sessionUser && mapelAktif) {
+        const r = await callAPI({ action: 'selesaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, mapel: mapelAktif });
+        telat = !!(r && r.terlambat);
+      }
+
+      // Bersihkan session ujian
+      clearInterval(timerInterval);
+      if(deteksiSubmitInterval) clearInterval(deteksiSubmitInterval); // ✅ Clear polling interval
+      window.removeEventListener('message', onFormMessage);
+      sessionStorage.removeItem('cbt_timer_end');
+      sessionStorage.removeItem('cbt_mapel_aktif');
+      sessionStorage.removeItem('cbt_id_ujian');
+      sessionStorage.removeItem('cbt_link_soal');
+      sessionStorage.removeItem('cbt_total_violations');
+      sessionStorage.removeItem('cbt_exam_locked');
+
+      // Keluar fullscreen + lepas kunci APK
+      try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+      lepasKunciAPK();
+
+      // Tampilkan pesan sukses lalu reload ke halaman awal siswa
+      document.getElementById('overlay-selesai').innerHTML = `
+        <div class="text-center px-8">
+          <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
+            <i class="fas fa-trophy text-white text-4xl"></i>
+          </div>
+          <h2 class="text-3xl font-black text-white mb-3 uppercase">Ujian Selesai!</h2>
+          <p class="text-slate-300 text-lg mb-2">${telat ? 'Waktu habis — tercatat TERLAMBAT.' : 'Jawaban kamu sudah tersimpan.'}</p>
+          <p class="text-slate-400 text-sm">Halaman akan kembali ke menu utama...</p>
+        </div>`;
+
+      setTimeout(() => {
+        // Kembali ke halaman pilih mapel (tidak logout)
+        document.getElementById('overlay-selesai').style.display = 'none';
+        document.getElementById('siswa-tahap-ujian').classList.add('hidden');
+        document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
+        loadMapelSiswa(sessionUser.kelas);
+      }, 3000);
+    }
+
+    function jalankanTimer() {
+        // ✅ FIX: Parse ke Number eksplisit — sessionStorage selalu simpan sebagai string
+        const endTime = Number(sessionStorage.getItem('cbt_timer_end'));
+        if(!endTime || isNaN(endTime)) return;
+
+        if(timerInterval) clearInterval(timerInterval); // Cegah double interval
+
+        timerInterval = setInterval(function() {
+            const now = new Date().getTime();
+            const distance = endTime - now;
+
+            if (distance < 0) {
+                clearInterval(timerInterval); 
+                document.getElementById("waktu-mundur").innerHTML = "00:00";
+                document.getElementById("timer-box").className = "bg-red-600 text-white px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-red-800 animate-pulse";
+                document.getElementById("time-blocker").style.display = "flex";
+                // Catat selesai ke backend
+                if(sessionUser && mapelAktif) {
+                  callAPI({action:'selesaiUjian', nis:sessionUser.nis, nama:sessionUser.nama, kelas:sessionUser.kelas, mapel:mapelAktif});
+                }
+                alert("🚨 WAKTU HABIS! 🚨\n\nSegera scroll ke paling bawah form ujian dan klik tombol SUBMIT/KIRIM!");
+                return;
+            }
+
+            const hours   = Math.floor(distance / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            // Tampilkan HH:mm:ss kalau >= 1 jam, mm:ss kalau < 1 jam
+            let display;
+            if(hours > 0) {
+                display = (hours<10?"0":"")+hours+":"+(minutes<10?"0":"")+minutes+":"+(seconds<10?"0":"")+seconds;
+            } else {
+                display = (minutes<10?"0":"")+minutes+":"+(seconds<10?"0":"")+seconds;
+            }
+            document.getElementById("waktu-mundur").innerHTML = display;
+
+            // Warna timer: merah kalau < 10 menit
+            if(minutes < 10 && hours === 0) {
+                document.getElementById("timer-box").className = "bg-red-100 text-red-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-red-300 animate-pulse";
+            } else {
+                document.getElementById("timer-box").className = "bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300";
+            }
+        }, 1000);
+    }
+
+    // =============================================
+    // ✅ KEAMANAN UJIAN ADVANCED
+    // =============================================
+
+    let pelanggaran = 0;
+    let batasPelanggaran = 5;
+    let isExamLocked = false;
+
+    // Kode unlock dihitung server (DB settings), client hanya display + validasi via API
+    let serverUnlock = { kode: '------', sisa: 0, interval: 5 };
+    let unlockDisplayInterval = null;
+
+    async function fetchUnlockCode() {
+      const res = await callAPI({ action: 'getUnlockCode' });
+      if (res.sukses) {
+        serverUnlock = { kode: res.kode, sisa: res.sisaDetik, interval: res.interval };
+        const elI = document.getElementById('set-unlock-interval');
+        if (elI) elI.value = res.interval;
+      }
+      return serverUnlock;
+    }
+
+    function startUnlockDisplay() {
+      async function update() {
+        await fetchUnlockCode();
+        const total = serverUnlock.interval * 60;
+        const pct = total ? (serverUnlock.sisa / total) * 100 : 0;
+        const elCode = document.getElementById('universal-unlock-code');
+        const elTimer = document.getElementById('unlock-countdown');
+        const elBar = document.getElementById('unlock-timer-bar');
+        if (elCode) elCode.textContent = serverUnlock.kode;
+        if (elTimer) {
+          const m = Math.floor(serverUnlock.sisa / 60).toString().padStart(2, '0');
+          const s = (serverUnlock.sisa % 60).toString().padStart(2, '0');
+          elTimer.textContent = m + ':' + s;
+          elTimer.className = serverUnlock.sisa < 30
+            ? 'text-red-400 font-black text-lg animate-pulse'
+            : 'text-yellow-400 font-black text-lg';
+        }
+        if (elBar) {
+          elBar.style.width = pct + '%';
+          elBar.style.background = pct > 40
+            ? 'linear-gradient(to right, #22c55e, #84cc16)'
+            : pct > 15
+              ? 'linear-gradient(to right, #f59e0b, #f97316)'
+              : 'linear-gradient(to right, #ef4444, #dc2626)';
+        }
+        if (serverUnlock.sisa > 0) serverUnlock.sisa--;
+      }
+      update();
+      if (unlockDisplayInterval) clearInterval(unlockDisplayInterval);
+      unlockDisplayInterval = setInterval(update, 5000);
+    }
+
+    function copyUnlockCode() {
+      navigator.clipboard.writeText(serverUnlock.kode)
+        .then(() => alert('✅ Kode "' + serverUnlock.kode + '" disalin!'))
+        .catch(() => alert('Kode aktif: ' + serverUnlock.kode));
+    }
+
+    async function saveUnlockInterval() {
+      const val = parseInt(document.getElementById('set-unlock-interval').value);
+      if (!val || val < 1) { alert('Minimal 1 menit!'); return; }
+      const res = await callAPI({ action: 'setUnlockInterval', interval: val });
+      alert(res.pesan || 'Tersimpan');
+      startUnlockDisplay();
+    }
+
+    async function saveViolationLimit() {
+      const limit = document.getElementById('set-violation-limit').value;
+      if(!limit || limit < 1) { alert('Minimal 1!'); return; }
+      const res = await callAPI({ action: 'setViolationLimit', limit: limit });
+      alert(res.pesan || 'Tersimpan');
+      if(res.sukses) batasPelanggaran = parseInt(limit);
+    }
+
+    async function loadViolationSetting() {
+      startUnlockDisplay();
+      const res = await callAPI({ action: 'getViolationLimit' });
+      const elLimit = document.getElementById('set-violation-limit');
+      if(res.sukses && elLimit) { elLimit.value = res.limit; batasPelanggaran = res.limit; }
+      else if(elLimit) elLimit.value = batasPelanggaran;
+    }
+
+    // ---- SISWA: lock & unlock ----
+    async function loadViolationLimit() {
+      const res = await callAPI({ action: 'getViolationLimit' });
+      if(res.sukses && parseInt(res.limit) > 0) batasPelanggaran = parseInt(res.limit);
+    }
+
+    function lockExam() {
+      isExamLocked = true;
+      sessionStorage.setItem('cbt_exam_locked', 'true');
+      sessionStorage.setItem('cbt_total_violations', pelanggaran);
+      document.getElementById('lock-violation-count').innerText = pelanggaran;
+      document.getElementById('lock-screen').style.display = 'flex';
+    }
+
+    async function unlockExam() {
+      const inputEl = document.getElementById('unlock-code-input');
+      const input = inputEl.value.trim().toUpperCase();
+      if(!input) { alert('Masukkan kode unlock!'); return; }
+      const res = await callAPI({ action: 'validateUnlock', code: input });
+      if(res.sukses) {
+        isExamLocked = false;
+        pelanggaran  = 0;
+        sessionStorage.removeItem('cbt_exam_locked');
+        sessionStorage.setItem('cbt_total_violations', '0');
+        document.getElementById('lock-screen').style.display = 'none';
+        inputEl.value = '';
+        alert('✅ Ujian berhasil di-unlock! Silakan lanjutkan.');
+      } else {
+        alert('❌ ' + (res.pesan || 'Kode salah atau sudah kadaluarsa!') + '\nMinta kode terbaru ke proktor.');
+        inputEl.value = '';
+      }
+    }
+
+    function recordViolation() {
+      const ujianSection = document.getElementById('siswa-tahap-ujian');
+      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked) return;
+
+      pelanggaran++;
+      sessionStorage.setItem('cbt_total_violations', pelanggaran);
+
+      document.getElementById('violation-count-text').innerText = pelanggaran;
+      document.getElementById('violation-limit-text').innerText = batasPelanggaran;
+
+      const w = document.getElementById('violation-warning');
+      w.style.display = 'block';
+      setTimeout(() => { w.style.display = 'none'; }, 3000);
+
+      if(pelanggaran >= batasPelanggaran) lockExam();
+    }
+
+    // ✅ FIX KRITIS: blur dari iframe (klik di Google Form) JANGAN dihitung pelanggaran
+    // Hanya catat pelanggaran dari visibilitychange (tab switch / minimize)
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'hidden') recordViolation();
+    });
+
+    // blur hanya dihitung kalau bukan karena fokus pindah ke iframe
+    window.addEventListener('blur', () => {
+      // Cek apakah fokus pindah ke iframe soal — kalau iya, bukan pelanggaran
+      setTimeout(() => {
+        const active = document.activeElement;
+        if(active && active.id === 'iframe-soal') return; // siswa klik di form → aman
+        // Kalau dokumen benar-benar tidak visible → sudah ditangani visibilitychange
+        // blur tanpa visibilitychange = alt+tab atau minimize di beberapa browser
+        if(document.visibilityState === 'visible') recordViolation();
+      }, 100);
+    });
+
+    function paksaFullscreen() {
+      try { if(window.Android) window.Android.setExamMode(true); } catch(e) {}
+      const e = document.documentElement;
+      if(e.requestFullscreen)            e.requestFullscreen().catch(()=>{});
+      else if(e.webkitRequestFullscreen) e.webkitRequestFullscreen();
+      else if(e.msRequestFullscreen)     e.msRequestFullscreen();
+    }
+    function lepasKunciAPK() {
+      try { if(window.Android) window.Android.setExamMode(false); } catch(e) {}
+    }
+
+    // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
+    document.addEventListener('fullscreenchange', () => {
+      const u = document.getElementById('siswa-tahap-ujian');
+      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked) {
+        // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
+        setTimeout(() => {
+          const active = document.activeElement;
+          if(active && active.id === 'iframe-soal') {
+            // Siswa masih di form, cukup paksa fullscreen tanpa hitung pelanggaran
+            paksaFullscreen();
+          } else {
+            recordViolation();
+            paksaFullscreen();
+          }
+        }, 300);
+      }
+    });
+
+    document.addEventListener('contextmenu', e => { if(currentRole === 'siswa') e.preventDefault(); });
+    document.addEventListener('keydown', e => {
+      if(currentRole === 'siswa') {
+        if(['F12','PrintScreen'].includes(e.key) ||
+           (e.ctrlKey && ['u','i','j','t','n','w'].includes(e.key.toLowerCase())) ||
+           (e.ctrlKey && e.shiftKey && ['i','j','c'].includes(e.key.toLowerCase()))) {
+          e.preventDefault();
+        }
+      }
+    });
+
+    function restoreSecurityState() {
+      loadViolationLimit();
+      const locked   = sessionStorage.getItem('cbt_exam_locked');
+      const savedVio = sessionStorage.getItem('cbt_total_violations');
+      if(locked === 'true') {
+        isExamLocked = true;
+        pelanggaran  = parseInt(savedVio) || 0;
+        document.getElementById('lock-violation-count').innerText = pelanggaran;
+        document.getElementById('lock-screen').style.display = 'flex';
+      }
+      if(savedVio) pelanggaran = parseInt(savedVio) || 0;
+    }
+
+    window.addEventListener('load', restoreSecurityState);
+
+    // =============================================
+    // ADMIN: Unlock Codes & Violation Settings
+    // =============================================
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+backend/config.php
+android/build/
+android/app/build/
+android/.gradle/
+*.apk
+*.aab
+local.properties
+.idea/
+.gradle/
+.DS_Store
+Thumbs.db
