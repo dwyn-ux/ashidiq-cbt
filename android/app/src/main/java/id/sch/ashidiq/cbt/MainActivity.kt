@@ -81,17 +81,17 @@ class MainActivity : AppCompatActivity() {
     guard.post(guardRun)
   }
 
-  override fun onSaveInstanceState(o: Bundle) { try { web.saveState(o) } catch (e: Exception) { } super.onSaveInstanceState(o) }
+  override fun onSaveInstanceState(o: Bundle) { try { web.saveState(o) } catch (e: Exception) { }; super.onSaveInstanceState(o) }
 
   private fun setExamModeInternal(on: Boolean) {
     examMode = on
     try {
       if (on) {
-        if (isOwner()) { try { dpm.setStatusBarDisabled(admin, true) } catch (e: Exception) { } try { dpm.setKeyguardDisabled(admin, true) } catch (e: Exception) { } }
+        if (isOwner()) { try { dpm.setStatusBarDisabled(admin, true) } catch (e: Exception) { }; try { dpm.setKeyguardDisabled(admin, true) } catch (e: Exception) { } }
         try { startLockTask() } catch (e: Exception) { }
       } else {
         try { stopLockTask() } catch (e: Exception) { }
-        if (isOwner()) { try { dpm.setStatusBarDisabled(admin, false) } catch (e: Exception) { } try { dpm.setKeyguardDisabled(admin, false) } catch (e: Exception) { } }
+        if (isOwner()) { try { dpm.setStatusBarDisabled(admin, false) } catch (e: Exception) { }; try { dpm.setKeyguardDisabled(admin, false) } catch (e: Exception) { } }
       }
     } catch (e: Exception) { }
     immersive()
