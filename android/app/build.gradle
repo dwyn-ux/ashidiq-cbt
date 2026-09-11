@@ -6,10 +6,10 @@ android {
         applicationId = "id.sch.ashidiq.cbt"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
-        buildConfigField("String", "API_URL", "\"https://GANTI-DOMAIN/cbt/backend/api.php\"")
-        buildConfigField("String", "WEB_URL", "\"https://HOSTING-KAMU/cbt/index.html\"")
+        versionCode = 2
+        versionName = "1.1"
+        buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
+        buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
     }
     buildTypes {
         release { isMinifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
