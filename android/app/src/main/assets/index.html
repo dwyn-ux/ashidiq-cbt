@@ -437,7 +437,7 @@
         <p class="text-[10px] font-black text-blue-600 bg-blue-50 py-1.5 px-4 rounded-full mt-2 inline-block tracking-widest">KELAS <span id="siswa-kelas">...</span></p>
       </div>
       <div class="space-y-2 flex-grow">
-        <button onclick="location.reload()" class="w-full p-4 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold flex items-center gap-4 transition text-slate-600"><i class="fas fa-home"></i> Beranda</button>
+        <button onclick="kembaliBeranda()" class="w-full p-4 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold flex items-center gap-4 transition text-slate-600"><i class="fas fa-home"></i> Beranda</button>
       </div>
       <button onclick="logout()" class="w-full p-4 bg-red-50 text-red-600 hover:bg-red-100 rounded-2xl font-black flex items-center justify-center gap-4 transition mt-auto"><i class="fas fa-sign-out-alt"></i> KELUAR</button>
     </aside>
@@ -583,7 +583,7 @@
         catch(e) {
             return { sukses: false, pesan: "Respon server tidak valid." };
         }
-        if (j.kode === 'UNAUTHORIZED') { sessionStorage.clear(); location.reload(); return { sukses: false, pesan: 'Sesi habis.' }; }
+        if (j.kode === 'UNAUTHORIZED') { sessionStorage.clear(); sessionUser = null; switchView('view-login'); return { sukses: false, pesan: 'Sesi habis.' }; }
         return j;
       } catch (err) {
           return { sukses: false, pesan: "Koneksi ke server gagal! Cek URL API." };
@@ -630,12 +630,8 @@
         document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
     }
 
-    window.onload = function() {
-      loadChecklist(); 
-      const saved = sessionStorage.getItem('cbt_session');
-      if(saved) {
-        const res = JSON.parse(saved); 
-        sessionUser = res; 
+    function renderSession(res) {
+        sessionUser = res;
         currentRole = res.role;
         if(res.role === 'admin' || res.role === 'proktor') { 
             document.getElementById('admin-name').innerText = res.nama; 
@@ -663,10 +659,15 @@
                 document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal'); 
                 jalankanTimer(); 
                 startDeteksiSubmit(); // ✅ Restore deteksi submit
-                paksaFullscreen(); 
+                paksaFullscreen();
             }
         }
-      }
+    }
+
+    window.onload = function() {
+      loadChecklist();
+      const saved = sessionStorage.getItem('cbt_session');
+      if(saved) { try { renderSession(JSON.parse(saved)); } catch(e) {} }
     };
 
     function loadChecklist() { for(let i=1; i<=4; i++) { if(localStorage.getItem('chk-'+i) === 'true') document.getElementById('chk-'+i).checked = true; } }
@@ -680,7 +681,7 @@
       btn.innerText = "LOADING..."; btn.disabled = true;
       const res = await callAPI({ action: 'login', username: u, password: p, role: currentRole });
       btn.innerText = "MASUK SISTEM"; btn.disabled = false;
-      if(res.sukses) { sessionStorage.setItem('cbt_session', JSON.stringify(res)); location.reload(); } 
+      if(res.sukses) { sessionStorage.setItem('cbt_session', JSON.stringify(res)); renderSession(res); }
       else { document.getElementById('login-error').innerText = res.pesan; document.getElementById('login-error').classList.remove('hidden'); }
     }
 
@@ -688,7 +689,7 @@
         if(!confirm("Yakin ingin keluar sistem?")) return;
         try { await callAPI({ action: 'logout' }); } catch(e) {}
         lepasKunciAPK();
-        sessionStorage.clear(); location.reload();
+        sessionStorage.clear(); sessionUser = null; switchView('view-login');
     }
 
     // =============================================
@@ -859,8 +860,15 @@
         
         document.getElementById(btnId).innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
         const res = await callAPI({ action: 'tambahData', sheet: sheet, dataArray: data });
-        alert(res.pesan); 
-        if(res.sukses) location.reload();
+        alert(res.pesan);
+        document.getElementById(btnId).innerText = sheet == 'DATA_SANTRI' ? 'SIMPAN DATA' : 'AKTIFKAN JADWAL';
+        if(res.sukses) { if(sheet == 'DATA_SANTRI') loadDataSantri(); else loadDataUjian(); }
+    }
+
+    function kembaliBeranda() {
+        document.getElementById('siswa-tahap-ujian').classList.add('hidden');
+        document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
+        if(sessionUser) loadMapelSiswa(sessionUser.kelas);
     }
 
     async function simpanSetting() {
@@ -935,7 +943,7 @@
         setInterval(async () => {
             if(currentRole==='siswa'&&sessionUser) {
                 const res = await callAPI({action:'heartbeat',nis:sessionUser.nis});
-                if(res.status==='Kicked') { alert("🚨 DIBERHENTIKAN ADMIN 🚨"); sessionStorage.clear(); location.reload(); return; }
+                if(res.status==='Kicked') { alert("🚨 DIBERHENTIKAN ADMIN 🚨"); sessionStorage.clear(); sessionUser = null; switchView('view-login'); return; }
                 if(res.endTime && !sessionStorage.getItem('cbt_timer_end')) {
                   sessionStorage.setItem('cbt_timer_end', String(res.endTime));
                   jalankanTimer();
