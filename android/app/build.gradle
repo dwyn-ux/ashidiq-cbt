@@ -3,7 +3,7 @@ android {
     namespace = "id.sch.ashidiq.cbt"
     compileSdk = 34
     defaultConfig {
-        applicationId = "id.sch.ashidiq.cbt"
+        applicationId = "ashidiq.cbt"
         minSdk = 26
         targetSdk = 34
         versionCode = 2
@@ -11,8 +11,20 @@ android {
         buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
         buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
     }
+    signingConfigs {
+        release {
+            storeFile file("../../ashidiq-release.jks")
+            storePassword "AshidiqCBT2026!"
+            keyAlias "ashidiq"
+            keyPassword "AshidiqCBT2026!"
+        }
+    }
     buildTypes {
-        release { minifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) }
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

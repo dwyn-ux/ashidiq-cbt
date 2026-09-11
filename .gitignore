@@ -4,6 +4,7 @@ android/app/build/
 android/.gradle/
 *.apk
 *.aab
+ashidiq-release.jks
 local.properties
 .idea/
 .gradle/
