@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -34,7 +34,7 @@ function sess(string $token): ?array {
 $s = ($action === 'login') ? null : sess((string)($req['token'] ?? ''));
 if ($action !== 'login' && !$s) fail('Sesi habis, login ulang.', 'UNAUTHORIZED');
 if (in_array($action, $ADMIN_ONLY, true) && !($s && in_array($s['role'], ['admin','proktor'], true))) fail('Akses ditolak.', 'FORBIDDEN');
-if ($action === 'generateAllPasswords' || $action === 'generateAllTokens' || $action === 'tambahData' || $action === 'editMapel' || $action === 'updateSetting' || $action === 'clearLog') {
+if ($action === 'generateAllPasswords' || $action === 'generateAllTokens' || $action === 'tambahData' || $action === 'bulkSantri' || $action === 'bulkMapel' || $action === 'editMapel' || $action === 'updateSetting' || $action === 'clearLog') {
   if (($s['role'] ?? '') !== 'admin') fail('Khusus admin.', 'FORBIDDEN');
 }
 if ($action === 'logout') {
@@ -314,6 +314,84 @@ try {
         out(['sukses' => true, 'pesan' => 'Berhasil disimpan!']);
       }
       fail('Sheet tidak diizinkan.');
+    }
+
+    case 'bulkSantri': {
+      $db = db();
+      $rows = $req['rows'] ?? [];
+      if (!is_array($rows)) fail('Format rows tidak valid.');
+      if (!count($rows)) fail('Tidak ada data.');
+      if (count($rows) > 500) fail('Maksimal 500 baris per upload.');
+      $updFull = $db->prepare('UPDATE students SET nama = ?, kelas = ?, pass = ? WHERE nis = ?');
+      $updKeep = $db->prepare('UPDATE students SET nama = ?, kelas = ? WHERE nis = ?');
+      $ins = $db->prepare('INSERT INTO students (nis, nama, kelas, pass) VALUES (?,?,?,?)');
+      $ok = 0; $skip = 0;
+      $db->beginTransaction();
+      try {
+        foreach ($rows as $r) {
+          if (!is_array($r)) { $skip++; continue; }
+          $nis = strtoupper(trim((string)($r['nis'] ?? '')));
+          $nama = trim((string)($r['nama'] ?? ''));
+          $kelas = strtoupper(str_replace(' ', '', trim((string)($r['kelas'] ?? ''))));
+          $pass = trim((string)($r['pass'] ?? ''));
+          if ($nis === '' || $nama === '' || $kelas === '') { $skip++; continue; }
+          if (strlen($nis) > 32 || strlen($nama) > 128 || strlen($kelas) > 16 || strlen($pass) > 32) { $skip++; continue; }
+          if ($pass === '') $updKeep->execute([$nama, $kelas, $nis]);
+          else $updFull->execute([$nama, $kelas, $pass, $nis]);
+          $n = $updFull->rowCount() + $updKeep->rowCount();
+          if ($n === 0) {
+            try { $ins->execute([$nis, $nama, $kelas, $pass]); }
+            catch (Throwable $e) { $skip++; continue; }
+          }
+          $ok++;
+        }
+        $db->commit();
+      } catch (Throwable $e) { $db->rollBack(); fail('Gagal bulk: ' . $e->getMessage()); }
+      audit($s['nama'] ?? '', 'BULK_SANTRI', "$ok ok, $skip skip");
+      out(['sukses' => true, 'pesan' => "Bulk santri: $ok tersimpan, $skip dilewati."]);
+    }
+
+    case 'bulkMapel': {
+      $db = db();
+      $rows = $req['rows'] ?? [];
+      if (!is_array($rows)) fail('Format rows tidak valid.');
+      if (!count($rows)) fail('Tidak ada data.');
+      if (count($rows) > 500) fail('Maksimal 500 baris per upload.');
+      $upd = $db->prepare("UPDATE exams SET mapel = ?, kelas_target = ?, token = COALESCE(NULLIF(?, ''), token), status = ?, tanggal = COALESCE(NULLIF(?, ''), tanggal), mulai = COALESCE(NULLIF(?, ''), mulai), selesai = COALESCE(NULLIF(?, ''), selesai), durasi = ? WHERE id = ?");
+      $ins = $db->prepare('INSERT INTO exams (id, mapel, kelas_target, token, status, tanggal, mulai, selesai, durasi) VALUES (?,?,?,?,?,?,?,?,?)');
+      $ok = 0; $skip = 0;
+      $db->beginTransaction();
+      try {
+        foreach ($rows as $r) {
+          if (!is_array($r)) { $skip++; continue; }
+          $id = strtoupper(trim((string)($r['id'] ?? '')));
+          $mapel = trim((string)($r['mapel'] ?? ''));
+          $kelas = strtoupper(str_replace(' ', '', trim((string)($r['kelas_target'] ?? ''))));
+          $token = strtoupper(trim((string)($r['token'] ?? '')));
+          $status = trim((string)($r['status'] ?? 'Aktif'));
+          if ($status !== 'Aktif' && $status !== 'Nonaktif') $status = 'Aktif';
+          $tgl = trim((string)($r['tanggal'] ?? ''));
+          if ($tgl !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) $tgl = '';
+          $mulai = trim((string)($r['mulai'] ?? ''));
+          if ($mulai !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $mulai)) $mulai = '';
+          $selesai = trim((string)($r['selesai'] ?? ''));
+          if ($selesai !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $selesai)) $selesai = '';
+          $dur = (int)($r['durasi'] ?? 90);
+          if ($dur < 1 || $dur > 999) $dur = 90;
+          if ($id === '' || $mapel === '' || $kelas === '') { $skip++; continue; }
+          if (strlen($id) > 32 || strlen($mapel) > 128 || strlen($kelas) > 128 || strlen($token) > 16) { $skip++; continue; }
+          if ($token === '') $token = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 5);
+          $upd->execute([$mapel, $kelas, $token, $status, $tgl, $mulai, $selesai, $dur, $id]);
+          if ($upd->rowCount() === 0) {
+            try { $ins->execute([$id, $mapel, $kelas, $token, $status, ($tgl !== '' ? $tgl : null), ($mulai !== '' ? $mulai : null), ($selesai !== '' ? $selesai : null), $dur]); }
+            catch (Throwable $e) { $skip++; continue; }
+          }
+          $ok++;
+        }
+        $db->commit();
+      } catch (Throwable $e) { $db->rollBack(); fail('Gagal bulk: ' . $e->getMessage()); }
+      audit($s['nama'] ?? '', 'BULK_MAPEL', "$ok ok, $skip skip");
+      out(['sukses' => true, 'pesan' => "Bulk mapel: $ok tersimpan, $skip dilewati."]);
     }
 
     case 'editMapel': {

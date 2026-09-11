@@ -307,6 +307,16 @@
               <button onclick="simpanData('DATA_SANTRI')" id="btn-save-santri" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg mt-4 transition hover:bg-blue-700">SIMPAN DATA</button>
             </div>
           </div>
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl mt-6">
+            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-csv text-green-600 mr-2"></i>Bulk Santri (CSV)</h3>
+            <p class="text-xs text-slate-500 mb-3">Header: <code class="bg-slate-100 px-1 rounded font-mono">nis,nama,kelas,pass</code>. Pass boleh kosong (tidak overwrite). Maks 500 baris. NIS duplikat = update.</p>
+            <div class="flex gap-2 mb-3">
+              <button onclick="unduhTemplate('santri')" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template CSV</button>
+              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File<input type="file" id="file-bulk-santri" accept=".csv,.txt" class="hidden" onchange="bacaFileBulk('santri')"></label>
+            </div>
+            <textarea id="bulk-santri" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="nis,nama,kelas,pass&#10;12345,Ahmad Ali,7A,abc123&#10;12346,Siti Nur,7A,"></textarea>
+            <button onclick="kirimBulk('santri')" id="btn-bulk-santri" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg mt-3 transition hover:bg-green-700">UPLOAD BULK</button>
+          </div>
         </div>
 
         <!-- TAB INPUT MAPEL -->
@@ -338,6 +348,16 @@
               </div>
               <button onclick="simpanData('MAPEL_AKTIF')" id="btn-save-mapel" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg mt-4 transition hover:bg-blue-700">AKTIFKAN JADWAL</button>
             </div>
+          </div>
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl mt-6">
+            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-csv text-green-600 mr-2"></i>Bulk Mapel (CSV)</h3>
+            <p class="text-xs text-slate-500 mb-3">Header: <code class="bg-slate-100 px-1 rounded font-mono">id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi</code>. Token kosong = auto-generate. ID duplikat = update. Tanggal YYYY-MM-DD, jam HH:MM.</p>
+            <div class="flex gap-2 mb-3">
+              <button onclick="unduhTemplate('mapel')" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template CSV</button>
+              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File<input type="file" id="file-bulk-mapel" accept=".csv,.txt" class="hidden" onchange="bacaFileBulk('mapel')"></label>
+            </div>
+            <textarea id="bulk-mapel" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi&#10;UJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90"></textarea>
+            <button onclick="kirimBulk('mapel')" id="btn-bulk-mapel" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg mt-3 transition hover:bg-green-700">UPLOAD BULK</button>
           </div>
         </div>
 
@@ -869,6 +889,61 @@
         document.getElementById('siswa-tahap-ujian').classList.add('hidden');
         document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
         if(sessionUser) loadMapelSiswa(sessionUser.kelas);
+    }
+
+    function parseCSV(text) {
+        const rows = [];
+        let cur = [''], q = false;
+        for (let i = 0; i < text.length; i++) {
+            const c = text[i];
+            if (q) {
+                if (c === '"') { if (text[i+1] === '"') { cur[cur.length-1] += '"'; i++; } else q = false; }
+                else cur[cur.length-1] += c;
+            } else if (c === '"') q = true;
+            else if (c === ',') cur.push('');
+            else if (c === '\n' || c === '\r') { if (c === '\r' && text[i+1] === '\n') i++; rows.push(cur); cur = ['']; }
+            else cur[cur.length-1] += c;
+        }
+        if (cur.length > 1 || cur[0] !== '') rows.push(cur);
+        return rows.filter(r => r.some(v => v.trim() !== ''));
+    }
+
+    function unduhTemplate(jenis) {
+        const csv = jenis === 'santri'
+            ? 'nis,nama,kelas,pass\n12345,Ahmad Ali,7A,abc123\n12346,Siti Nur,7A,\n'
+            : 'id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi\nUJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90\nUJ-02,Bahasa Indonesia,"7A,7B",,Aktif,2026-09-16,07:30,09:00,90\n';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+        a.download = jenis === 'santri' ? 'template_santri.csv' : 'template_mapel.csv';
+        a.click();
+    }
+
+    function bacaFileBulk(jenis) {
+        const f = document.getElementById('file-bulk-' + jenis).files[0];
+        if (!f) return;
+        if (f.size > 512 * 1024) return alert('File maks 512KB.');
+        const r = new FileReader();
+        r.onload = () => { document.getElementById('bulk-' + jenis).value = r.result; alert('File dimuat. Cek isi lalu klik UPLOAD BULK.'); };
+        r.readAsText(f);
+    }
+
+    async function kirimBulk(jenis) {
+        const txt = document.getElementById('bulk-' + jenis).value.trim();
+        if (!txt) return alert('Tempel CSV atau pilih file dulu!');
+        const lines = parseCSV(txt);
+        if (!lines.length) return alert('CSV kosong!');
+        if (lines.length > 501) return alert('Maksimal 500 baris data!');
+        const head = lines[0].map(h => h.trim().toLowerCase());
+        const isHeader = jenis === 'santri' ? head.includes('nis') : head.includes('id') && head.includes('mapel');
+        const data = isHeader ? lines.slice(1) : lines;
+        let rows;
+        if (jenis === 'santri') rows = data.map(c => ({ nis: c[0] || '', nama: c[1] || '', kelas: c[2] || '', pass: c[3] || '' }));
+        else rows = data.map(c => ({ id: c[0] || '', mapel: c[1] || '', kelas_target: c[2] || '', token: c[3] || '', status: c[4] || 'Aktif', tanggal: c[5] || '', mulai: c[6] || '', selesai: c[7] || '', durasi: c[8] || 90 }));
+        const btn = document.getElementById('btn-bulk-' + jenis);
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengupload...'; btn.disabled = true;
+        const res = await callAPI({ action: jenis === 'santri' ? 'bulkSantri' : 'bulkMapel', rows: rows });
+        alert(res.pesan || 'Selesai.'); btn.innerHTML = 'UPLOAD BULK'; btn.disabled = false;
+        if (res.sukses) { document.getElementById('bulk-' + jenis).value = ''; if (jenis === 'santri') loadDataSantri(); else loadDataUjian(); }
     }
 
     async function simpanSetting() {
