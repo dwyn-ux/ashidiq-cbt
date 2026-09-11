@@ -310,7 +310,12 @@ try {
       if ($sheet === 'MAPEL_AKTIF') {
         $row = array_slice(array_pad($row, 10, ''), 0, 10);
         $row[9] = (int)$row[9] > 0 ? (int)$row[9] : 90;
-        $db->prepare('INSERT INTO exams (id, mapel, kelas_target, token, status, form_url, tanggal, mulai, selesai, durasi) VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE mapel = VALUES(mapel), kelas_target = VALUES(kelas_target), token = VALUES(token), status = VALUES(status), form_url = COALESCE(NULLIF(VALUES(form_url), ""), form_url), tanggal = NULLIF(VALUES(tanggal),""), mulai = NULLIF(VALUES(mulai),""), selesai = NULLIF(VALUES(selesai),""), durasi = VALUES(durasi)')->execute($row);
+        if (trim((string)$row[0]) === '' || trim((string)$row[1]) === '' || trim((string)$row[2]) === '') fail('ID, mapel, dan kelas target wajib diisi.');
+        if (trim((string)$row[3]) === '') $row[3] = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 5);
+        foreach ([6, 7, 8] as $i) if (trim((string)$row[$i]) === '') $row[$i] = null;
+        if ($row[6] !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$row[6])) fail('Format tanggal harus YYYY-MM-DD.');
+        foreach ([7, 8] as $i) if ($row[$i] !== null && !preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', (string)$row[$i])) fail('Format jam harus HH:MM.');
+        $db->prepare('INSERT INTO exams (id, mapel, kelas_target, token, status, form_url, tanggal, mulai, selesai, durasi) VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE mapel = VALUES(mapel), kelas_target = VALUES(kelas_target), token = VALUES(token), status = VALUES(status), form_url = COALESCE(NULLIF(VALUES(form_url), ""), form_url), tanggal = COALESCE(NULLIF(VALUES(tanggal),""), tanggal), mulai = COALESCE(NULLIF(VALUES(mulai),""), mulai), selesai = COALESCE(NULLIF(VALUES(selesai),""), selesai), durasi = VALUES(durasi)')->execute($row);
         out(['sukses' => true, 'pesan' => 'Berhasil disimpan!']);
       }
       fail('Sheet tidak diizinkan.');
