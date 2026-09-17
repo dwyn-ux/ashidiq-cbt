@@ -725,9 +725,12 @@
             document.getElementById('siswa-nama').innerText = res.nama; 
             document.getElementById('siswa-kelas').innerText = res.kelas; 
             document.getElementById('avatar-initial').innerText = res.nama.charAt(0).toUpperCase(); 
-            switchView('view-siswa'); 
-            loadMapelSiswa(res.kelas); 
-            startCheckingStatus(); 
+            switchView('view-siswa');
+            try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
+            const cg = document.getElementById('cek-google');
+            if(cg) cg.checked = googleSiap;
+            loadMapelSiswa(res.kelas);
+            startCheckingStatus();
             let savedMapel = sessionStorage.getItem('cbt_mapel_aktif');
             if(savedMapel) { 
                 mapelAktif = savedMapel; 
@@ -1281,9 +1284,11 @@
     }
 
     let googleSiap = false;
-    function bukaLoginGoogle() { window.location.href = 'https://accounts.google.com/ServiceLogin?continue=https://docs.google.com/forms/'; }
+    try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
+    function bukaLoginGoogle() { window.open('https://myaccount.google.com/', '_blank', 'noopener'); }
     function toggleGoogle(v) {
       googleSiap = !!v;
+      try { sessionStorage.setItem('cbt_google_siap', googleSiap ? '1' : '0'); } catch(e) {}
       document.querySelectorAll('#list-mapel input, #list-mapel button').forEach(el => { el.disabled = !googleSiap; });
       const h = document.getElementById('gate-hint');
       if(h) h.innerText = googleSiap ? '' : 'Centang login Gmail dulu untuk membuka token & MULAI.';
