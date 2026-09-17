@@ -1200,16 +1200,18 @@
        let printWin = window.open('','','width=900,height=800'); printWin.document.write(html); printWin.document.close();
     }
 
-    function cetakKartu() {
+    async function cetakKartu() {
       const btn = document.getElementById('btn-cetak'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING...'; btn.disabled = true;
-      callAPI({action:'getSantriData'}).then(res => {
-         btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false;
-         if(!Array.isArray(res)) { alert('Gagal memuat data santri: ' + (res.pesan || 'error')); return; }
-         let html = `<html><head><title>Kartu Ujian</title><style>body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eee;padding:20px;}.print-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:auto;}.card{background:#fff;border:2px dashed #333;padding:20px;border-radius:12px;}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}.header h2{margin:0;font-size:18px;text-transform:uppercase;}.header p{margin:5px 0 0 0;font-size:12px;}.row{margin-bottom:8px;font-size:14px;display:flex;}.label{width:80px;font-weight:bold;}.pass-box{background:#f0f0f0;padding:5px 10px;font-family:monospace;font-size:16px;font-weight:bold;letter-spacing:2px;border:1px solid #ccc;display:inline-block;}@media print{body{background:#fff;padding:0;}.print-container{gap:10px;}.card{page-break-inside:avoid;border:1px solid #000;}}</style></head><body onload="window.print()"><div class="print-container">`;
-         res.forEach(s => { html += `<div class="card"><div class="header"><h2>KARTU PESERTA CBT</h2><p>SMP UNGGULAN ASHIDIQ</p></div><div class="row"><div class="label">NIS</div>: &nbsp;${esc(s.nis)}</div><div class="row"><div class="label">Nama</div>: &nbsp;<b>${esc(s.nama)}</b></div><div class="row"><div class="label">Kelas</div>: &nbsp;${esc(s.kelas)}</div><div class="row" style="margin-top:15px;align-items:center;"><div class="label">Password</div>: &nbsp;<div class="pass-box">${esc(s.pass)}</div></div></div>`; });
+      try {
+        const [res, dok] = await Promise.all([callAPI({action:'getSantriData'}), callAPI({action:'getDokumenData'})]);
+        btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false;
+        if(!Array.isArray(res)) { alert('Gagal memuat data santri: ' + (res.pesan || 'error')); return; }
+        const namaSekolah = (dok && dok.settings && dok.settings.sekolah) || document.getElementById('set-sekolah').value || 'SMA PONDOK PESANTREN ASH-SHIDDIQ';
+        let html = `<html><head><title>Kartu Ujian</title><style>body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eee;padding:20px;}.print-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:auto;}.card{background:#fff;border:2px dashed #333;padding:20px;border-radius:12px;}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}.header h2{margin:0;font-size:18px;text-transform:uppercase;}.header p{margin:5px 0 0 0;font-size:12px;}.row{margin-bottom:8px;font-size:14px;display:flex;}.label{width:80px;font-weight:bold;}.pass-box{background:#f0f0f0;padding:5px 10px;font-family:monospace;font-size:16px;font-weight:bold;letter-spacing:2px;border:1px solid #ccc;display:inline-block;}@media print{body{background:#fff;padding:0;}.print-container{gap:10px;}.card{page-break-inside:avoid;border:1px solid #000;}}</style></head><body onload="window.print()"><div class="print-container">`;
+        res.forEach(s => { html += `<div class="card"><div class="header"><h2>KARTU PESERTA CBT</h2><p>${esc(namaSekolah)}</p></div><div class="row"><div class="label">NIS</div>: &nbsp;${esc(s.nis)}</div><div class="row"><div class="label">Nama</div>: &nbsp;<b>${esc(s.nama)}</b></div><div class="row"><div class="label">Kelas</div>: &nbsp;${esc(s.kelas)}</div><div class="row" style="margin-top:15px;align-items:center;"><div class="label">Password</div>: &nbsp;<div class="pass-box">${esc(s.pass)}</div></div></div>`; });
          html += `</div></body></html>`;
          let printWin = window.open('','','width=900,height=600'); printWin.document.write(html); printWin.document.close();
-      });
+      } catch(e) { btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false; alert('Gagal cetak kartu: ' + (e.message || e)); }
     }
 
     function magicCode(id, len) { const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let r=""; for(let i=0;i<len;i++) r+=c.charAt(Math.floor(Math.random()*c.length)); document.getElementById(id).value=r; }
