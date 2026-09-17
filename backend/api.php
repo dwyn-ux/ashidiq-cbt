@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -127,6 +127,60 @@ function kodeFromSeed_(int $seed): string {
 }
 function unlockInterval(): int { $n = (int)setting('unlock_interval', '5'); return $n > 0 ? $n : 5; }
 function unlockSeed(): int { return intdiv(time(), unlockInterval() * 60); }
+function entryOK(string $v): bool { return $v === '' || preg_match('/^\d{4,12}$/', $v) === 1; }
+function baseFormUrl(string $url): string {
+  $p = parse_url(trim($url));
+  if (!$p || ($p['host'] ?? '') !== 'docs.google.com') return '';
+  $path = $p['path'] ?? '';
+  if (strpos($path, '/forms/') === false) return '';
+  $m = [];
+  if (!preg_match('#/forms/d(?:/e)?/([A-Za-z0-9_-]+)#', $path, $m)) return '';
+  return 'https://docs.google.com/forms/d/e/' . $m[1] . '/viewform';
+}
+function resolveFormUrl(string $url): string {
+  if (!function_exists('curl_init')) return '';
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_TIMEOUT => 10, CURLOPT_USERAGENT => 'Mozilla/5.0']);
+  curl_exec($ch);
+  $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+  curl_close($ch);
+  return baseFormUrl($eff);
+}
+function buildPrefill(string $base, array $entries, array $vals): string {
+  $q = [];
+  $map = ['nis' => 'entry_nis', 'nama' => 'entry_nama', 'kelas' => 'entry_kelas', 'mapel' => 'entry_mapel'];
+  foreach ($map as $vk => $ek) {
+    $eid = (string)($entries[$ek] ?? '');
+    $val = (string)($vals[$vk] ?? '');
+    if ($eid !== '' && $val !== '') $q['entry.' . $eid] = $val;
+  }
+  if (!$q) return $base;
+  return $base . (strpos($base, '?') === false ? '?' : '&') . 'usp=pp_url&' . http_build_query($q, '', '&', PHP_QUERY_RFC3986);
+}
+function detectEntries(string $url): array {
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 10, CURLOPT_USERAGENT => 'Mozilla/5.0']);
+  $html = (string)curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  if ($code < 200 || $code >= 300 || $html === '') fail('Form tidak bisa dibaca. Pastikan link publik & hosting boleh akses google.com. Isi entry ID manual.');
+  $found = ['entry_nis' => '', 'entry_nama' => '', 'entry_kelas' => '', 'entry_mapel' => ''];
+  $labels = ['entry_nis' => ['nis', 'nim', 'nomor induk'], 'entry_nama' => ['nama lengkap', 'nama siswa', 'nama'], 'entry_kelas' => ['kelas'], 'entry_mapel' => ['mapel', 'mata pelajaran', 'pelajaran']];
+  $low = mb_strtolower($html);
+  preg_match_all('/entry\.(\d{4,12})/', $html, $m);
+  $ids = array_values(array_unique($m[1] ?? []));
+  foreach ($labels as $ek => $keys) {
+    foreach ($ids as $id) {
+      foreach ($keys as $k) {
+        $pos = mb_strpos($low, $k);
+        if ($pos === false) continue;
+        $near = mb_substr($low, max(0, $pos - 3000), 6000);
+        if (strpos($near, 'entry.' . $id) !== false) { $found[$ek] = $id; break 3; }
+      }
+    }
+  }
+  return $found;
+}
 
 try {
   switch ($action) {
@@ -148,7 +202,11 @@ try {
     }
 
     case 'getAllMapel': {
-      $rows = db()->query('SELECT id, mapel, kelas_target AS kelas, token, status, form_url, tanggal AS tgl, DATE_FORMAT(mulai, "%H:%i") AS mulai, DATE_FORMAT(selesai, "%H:%i") AS selesai, durasi FROM exams ORDER BY tanggal DESC')->fetchAll();
+      try {
+        $rows = db()->query('SELECT id, mapel, kelas_target AS kelas, token, status, form_url, entry_nis, entry_nama, entry_kelas, entry_mapel, tanggal AS tgl, DATE_FORMAT(mulai, "%H:%i") AS mulai, DATE_FORMAT(selesai, "%H:%i") AS selesai, durasi FROM exams ORDER BY tanggal DESC')->fetchAll();
+      } catch (Throwable $e) {
+        $rows = db()->query('SELECT id, mapel, kelas_target AS kelas, token, status, form_url, tanggal AS tgl, DATE_FORMAT(mulai, "%H:%i") AS mulai, DATE_FORMAT(selesai, "%H:%i") AS selesai, durasi FROM exams ORDER BY tanggal DESC')->fetchAll();
+      }
       foreach ($rows as &$r) { $r['form_url'] = $r['form_url'] ?? ''; }
       out(array_values($rows));
     }
@@ -204,23 +262,32 @@ try {
       $nis = (string)($s['nis'] ?? $req['nis'] ?? '');
       $nama = (string)($s['nama'] ?? $req['nama'] ?? '');
       $kelas = (string)($s['kelas'] ?? $req['kelas'] ?? '');
+      $mkLink = function() use ($ex, $nis, $nama, $kelas): string {
+        $raw = (string)$ex['form_url'];
+        if (strpos($raw, 'TEMPLATE_') !== false) {
+          $link = $raw;
+          $link = str_replace('TEMPLATE_NIS', rawurlencode($nis), $link);
+          $link = str_replace('TEMPLATE_NAMA', rawurlencode($nama), $link);
+          $link = str_replace('TEMPLATE_KELAS', rawurlencode($kelas), $link);
+          return $link;
+        }
+        $base = baseFormUrl($raw);
+        if ($base === '') {
+          $ph = parse_url($raw);
+          $base = (($ph['host'] ?? '') === 'forms.gle') ? (resolveFormUrl($raw) ?: $raw) : $raw;
+        }
+        return buildPrefill($base, $ex, ['nis' => $nis, 'nama' => $nama, 'kelas' => $kelas, 'mapel' => (string)$ex['mapel']]);
+      };
       $st = $db->prepare("SELECT end_ms FROM sessions WHERE exam_id = ? AND nis = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
       $st->execute([$id, $nis]);
       if ($old = $st->fetch()) {
-        $link = (string)$ex['form_url'];
-        $link = str_replace('TEMPLATE_NIS', rawurlencode($nis), $link);
-        $link = str_replace('TEMPLATE_NAMA', rawurlencode($nama), $link);
-        $link = str_replace('TEMPLATE_KELAS', rawurlencode($kelas), $link);
-        out(['sukses' => true, 'link' => $link, 'mapel' => $ex['mapel'], 'durasi' => (int)$ex['durasi'], 'endTime' => (int)$old['end_ms']]);
+        out(['sukses' => true, 'link' => $mkLink(), 'mapel' => $ex['mapel'], 'durasi' => (int)$ex['durasi'], 'endTime' => (int)$old['end_ms']]);
       }
       $dur = (int)$ex['durasi'] > 0 ? (int)$ex['durasi'] : 90;
       $startMs = (int)(microtime(true) * 1000);
       $endMs = $startMs + $dur * 60 * 1000;
       $db->prepare('INSERT INTO sessions (exam_id, nis, nama, kelas, mapel, status, start_ms, end_ms, last_seen) VALUES (?,?,?,?,?,"Sedang Mengerjakan",?,?,?)')->execute([$id, $nis, $nama, $kelas, $ex['mapel'], $startMs, $endMs, $startMs]);
-      $link = (string)$ex['form_url'];
-      $link = str_replace('TEMPLATE_NIS', rawurlencode($nis), $link);
-      $link = str_replace('TEMPLATE_NAMA', rawurlencode($nama), $link);
-      $link = str_replace('TEMPLATE_KELAS', rawurlencode($kelas), $link);
+      $link = $mkLink();
       audit($nis, 'EXAM_START', $id);
       out(['sukses' => true, 'link' => $link, 'mapel' => $ex['mapel'], 'durasi' => $dur, 'endTime' => $endMs]);
     }
@@ -406,12 +473,53 @@ try {
         (string)($req['status'] ?? 'Aktif'), (string)($req['tgl'] ?? ''), (string)($req['mulai'] ?? ''), (string)($req['selesai'] ?? ''),
         (int)($req['durasi'] ?? 90), (string)($req['formUrl'] ?? ''), (string)($req['id'] ?? ''),
       ]);
+      try {
+        $ens = [trim((string)($req['entryNis'] ?? '')), trim((string)($req['entryNama'] ?? '')), trim((string)($req['entryKelas'] ?? '')), trim((string)($req['entryMapel'] ?? ''))];
+        $has = isset($req['entryNis']) || isset($req['entryNama']) || isset($req['entryKelas']) || isset($req['entryMapel']);
+        if ($has) {
+          foreach ($ens as $v) if (!entryOK($v)) fail('Entry ID harus angka 4-12 digit atau kosong.');
+          $db->prepare('UPDATE exams SET entry_nis = NULLIF(?, ""), entry_nama = NULLIF(?, ""), entry_kelas = NULLIF(?, ""), entry_mapel = NULLIF(?, "") WHERE id = ?')->execute([$ens[0], $ens[1], $ens[2], $ens[3], (string)($req['id'] ?? '')]);
+        }
+      } catch (Throwable $e) { if (strpos($e->getMessage(), 'Entry ID') !== false) fail($e->getMessage()); }
       out(['sukses' => true, 'pesan' => 'Jadwal Mapel (' . ($req['id'] ?? '') . ') berhasil diupdate!']);
     }
 
     case 'setFormUrl': {
-      db()->prepare('UPDATE exams SET form_url = ? WHERE id = ?')->execute([(string)($req['formUrl'] ?? ''), strtoupper(trim((string)($req['idUjian'] ?? '')))]);
-      out(['sukses' => true, 'pesan' => 'Link Form tersimpan.']);
+      $idU = strtoupper(trim((string)($req['idUjian'] ?? '')));
+      $rawUrl = trim((string)($req['formUrl'] ?? ''));
+      if ($idU === '' || $rawUrl === '') fail('Isi ID ujian dan URL Form!');
+      if (strpos($rawUrl, 'TEMPLATE_') === false) {
+        if (baseFormUrl($rawUrl) === '') {
+          $ph = parse_url($rawUrl);
+          if (($ph['host'] ?? '') === 'forms.gle') {
+            $canon = resolveFormUrl($rawUrl);
+            if ($canon === '') fail('Link forms.gle tidak bisa dibuka server. Pakai link docs.google.com panjang.');
+            $rawUrl = $canon;
+          } else fail('URL harus Google Form (docs.google.com/forms/... atau forms.gle).');
+        }
+      } elseif (strpos($rawUrl, 'https://docs.google.com/forms/') !== 0) fail('URL harus Google Form (https://docs.google.com/forms/...).');
+      $ens = ['entry_nis' => trim((string)($req['entryNis'] ?? '')), 'entry_nama' => trim((string)($req['entryNama'] ?? '')), 'entry_kelas' => trim((string)($req['entryKelas'] ?? '')), 'entry_mapel' => trim((string)($req['entryMapel'] ?? ''))];
+      foreach ($ens as $k => $v) if (!entryOK($v)) fail("Entry ID $k harus angka 4-12 digit atau kosong.");
+      $cols = '';
+      try { $cols = (string)db()->query('SELECT GROUP_CONCAT(COLUMN_NAME) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "exams"')->fetchColumn(); } catch (Throwable $e) {}
+      if (strpos($cols, 'entry_nis') !== false) {
+        db()->prepare('UPDATE exams SET form_url = ?, entry_nis = NULLIF(?, ""), entry_nama = NULLIF(?, ""), entry_kelas = NULLIF(?, ""), entry_mapel = NULLIF(?, "") WHERE id = ?')->execute([$rawUrl, $ens['entry_nis'], $ens['entry_nama'], $ens['entry_kelas'], $ens['entry_mapel'], $idU]);
+      } else {
+        db()->prepare('UPDATE exams SET form_url = ? WHERE id = ?')->execute([$rawUrl, $idU]);
+      }
+      audit($s['nama'] ?? $s['nis'] ?? '', 'SET_FORM', $idU);
+      $warn = (strpos($rawUrl, 'TEMPLATE_') !== false) ? ' (mode lama TEMPLATE_*)' : ((array_sum(array_map(fn($v) => $v === '' ? 0 : 1, $ens)) === 0) ? ' — entry ID kosong, Form terbuka tanpa prefill.' : ' — prefill aktif.');
+      out(['sukses' => true, 'pesan' => 'Link Form tersimpan' . $warn]);
+    }
+
+    case 'detectFormEntries': {
+      $idU = strtoupper(trim((string)($req['idUjian'] ?? '')));
+      $st = db()->prepare('SELECT form_url FROM exams WHERE id = ?');
+      $st->execute([$idU]);
+      $ex = $st->fetch();
+      if (!$ex || empty($ex['form_url'])) fail('Simpan link Form dulu sebelum deteksi.');
+      if (!function_exists('curl_init')) fail('cURL tidak tersedia di hosting. Isi entry ID manual.');
+      out(['sukses' => true, 'entries' => detectEntries((string)$ex['form_url']), 'pesan' => 'Deteksi selesai. Cek & simpan.']);
     }
 
     case 'updateSetting': {

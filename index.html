@@ -856,7 +856,7 @@
     }
     function previewPrefill() {
       const url = document.getElementById('linkform-url').value.trim();
-      if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('Tempel URL Google Form dulu!');
+      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('Tempel URL Google Form dulu (docs.google.com atau forms.gle)!');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
       const q = [];
@@ -871,7 +871,7 @@
       const id = document.getElementById('linkform-id').value.trim().toUpperCase();
       const url = document.getElementById('linkform-url').value.trim();
       if(!id || !url) return alert('Isi ID ujian dan URL Form!');
-      if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('URL harus Google Form (https://docs.google.com/forms/...)!');
+      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('URL harus Google Form (docs.google.com/forms/... atau forms.gle)!');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
       if(url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
