@@ -327,9 +327,9 @@
               <div class="grid grid-cols-2 gap-4">
                 <input type="text" id="inp-idujian" class="w-full p-3 border rounded-xl uppercase" placeholder="ID Ujian">
                 <div>
-                  <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (Pisahkan dengan koma)</label>
-                  <input type="text" id="inp-kelastarget" class="w-full p-3 border rounded-xl uppercase" placeholder="Contoh: 11A,11B atau SEMUA">
-                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Harus sesuai data santri (XI otomatis = 11). Isi SEMUA untuk semua kelas.</p>
+                  <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (PILIH, BISA BANYAK)</label>
+                  <div id="inp-kelastarget-list" class="w-full p-3 border rounded-xl bg-slate-50 max-h-32 overflow-y-auto space-y-1 text-sm font-bold text-slate-600"><p class="text-xs text-slate-400">Memuat daftar kelas...</p></div>
+                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Daftar dari data santri. Centang SEMUA untuk semua kelas.</p>
                 </div>
               </div>
               <input type="text" id="inp-namamapel" class="w-full p-3 border rounded-xl" placeholder="Nama Mata Pelajaran">
@@ -540,12 +540,11 @@
              <label class="text-[10px] font-bold text-slate-400 ml-1">NAMA MATA PELAJARAN</label>
              <input type="text" id="edit-namamapel" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50" placeholder="Nama Mata Pelajaran">
            </div>
-           <!-- Kelas Target -->
-           <div>
-             <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (pisah koma)</label>
-             <input type="text" id="edit-kelas" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 uppercase" placeholder="Contoh: 7,8,9 atau 7A,7B">
-             <p class="text-[9px] text-blue-500 mt-1 font-bold ml-1">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
-           </div>
+            <!-- Kelas Target -->
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (PILIH, BISA BANYAK)</label>
+              <div id="edit-kelas-list" class="w-full p-3 border rounded-xl bg-slate-50 max-h-32 overflow-y-auto space-y-1 text-sm font-bold text-slate-600"><p class="text-xs text-slate-400">Memuat daftar kelas...</p></div>
+            </div>
            <!-- Tanggal -->
            <div><label class="text-[10px] font-bold text-slate-400 ml-1">TANGGAL UJIAN</label><input type="date" id="edit-tgl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50"></div>
            <!-- Jam -->
@@ -659,6 +658,7 @@
       if(id === 'tab-data-santri') loadDataSantri();
       if(id === 'tab-data-ujian') loadDataUjian();
       if(id === 'tab-dokumen') loadDataDokumen();
+      if(id === 'tab-input-mapel') loadKelasChecklists();
       if(id === 'tab-unlock-codes') { loadViolationSetting(); }
     }
 
@@ -679,7 +679,8 @@
                 document.getElementById('btn-auto-pass').style.display = 'none'; 
                 document.getElementById('btn-auto-token').style.display = 'none'; 
             }
-            switchView('view-admin'); 
+            switchView('view-admin');
+            loadKelasChecklists();
             switchAdminTab('tab-monitoring'); 
         } else { 
             document.getElementById('siswa-nama').innerText = res.nama; 
@@ -884,11 +885,49 @@
       if(res.sukses) warnLink(res.pesan, true);
     }
 
+    let cachedKelasList = null;
+    async function fetchKelasList() {
+        if (cachedKelasList) return cachedKelasList;
+        const res = await callAPI({ action: 'getKelasList' });
+        cachedKelasList = (res.sukses && Array.isArray(res.kelas)) ? res.kelas.slice().sort() : [];
+        return cachedKelasList;
+    }
+    function renderKelasChecklist(elId, selected) {
+        const el = document.getElementById(elId);
+        const sel = new Set((selected || '').split(',').map(s => normKelasJS(s)).filter(Boolean));
+        return fetchKelasList().then(list => {
+            const opts = ['SEMUA'].concat(list);
+            if (!opts.length || (opts.length === 1)) { el.innerHTML = '<p class="text-xs text-slate-400">Belum ada data santri. Input santri dulu.</p>'; return; }
+            el.innerHTML = opts.map(k => `<label class="flex items-center gap-2 cursor-pointer hover:bg-white rounded px-1 py-0.5"><input type="checkbox" value="${esc(k)}" ${sel.has(k) ? 'checked' : ''} ${k === 'SEMUA' ? 'data-semua="1"' : ''} class="w-4 h-4 rounded text-blue-600" onchange="onKelasCheck('${elId}')"> ${esc(k)}</label>`).join('');
+        }).catch(() => { el.innerHTML = '<p class="text-xs text-red-400">Gagal memuat daftar kelas.</p>'; });
+    }
+    function onKelasCheck(elId) {
+        const el = document.getElementById(elId);
+        const boxes = Array.from(el.querySelectorAll('input[type=checkbox]'));
+        const semua = boxes.find(b => b.dataset.semua);
+        if (semua && semua.checked) boxes.forEach(b => { if (b !== semua) { b.checked = false; b.disabled = true; } });
+        else boxes.forEach(b => { b.disabled = false; });
+    }
+    function bacaKelasChecklist(elId) {
+        const el = document.getElementById(elId);
+        const vals = Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(b => b.value);
+        if (vals.includes('SEMUA')) return 'SEMUA';
+        return vals.join(',');
+    }
+    async function loadKelasChecklists() {
+        await renderKelasChecklist('inp-kelastarget-list', '');
+        const eid = document.getElementById('edit-id').value;
+        if (eid) {
+            const cur = document.getElementById('edit-kelas-list').dataset.cur || '';
+            await renderKelasChecklist('edit-kelas-list', cur);
+        }
+    }
     function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl, enis, enama, ekelas, emapel) {
         document.getElementById('edit-id').value        = id;
         document.getElementById('edit-id-text').innerText = id;
         document.getElementById('edit-namamapel').value = mapel  || '';
-        document.getElementById('edit-kelas').value     = kelas  || '';
+        document.getElementById('edit-kelas-list').dataset.cur = kelas || '';
+        renderKelasChecklist('edit-kelas-list', kelas || '');
         document.getElementById('edit-tgl').value       = tgl    || '';
         document.getElementById('edit-mulai').value     = mulai  || '';
         document.getElementById('edit-selesai').value   = selesai || '';
@@ -910,7 +949,7 @@
           action:    'editMapel',
           id:        document.getElementById('edit-id').value,
           mapel:     document.getElementById('edit-namamapel').value,
-          kelas:     document.getElementById('edit-kelas').value,
+          kelas:     bacaKelasChecklist('edit-kelas-list'),
           tgl:       document.getElementById('edit-tgl').value,
           mulai:     document.getElementById('edit-mulai').value,
           selesai:   document.getElementById('edit-selesai').value,
@@ -923,6 +962,7 @@
           entryKelas: document.getElementById('edit-ekelas').value.trim(),
           entryMapel: document.getElementById('edit-emapel').value.trim()
         };
+        if(!payload.kelas) { alert('Pilih minimal 1 kelas target!'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
         const res = await callAPI(payload);
         alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
         if(res.sukses) { document.getElementById('modal-edit-mapel').classList.add('hidden'); loadDataUjian(); }
@@ -945,7 +985,7 @@
             data = [
                 document.getElementById('inp-idujian').value,
                 document.getElementById('inp-namamapel').value,
-                document.getElementById('inp-kelastarget').value,  // ✅ Tetap satu string "11A,11B"
+                bacaKelasChecklist('inp-kelastarget-list'),
                 document.getElementById('inp-token').value,
                 document.getElementById('inp-status').value,
                 '',  // LINK_FORM (kosong dulu, nanti diisi saat generate form)
@@ -956,6 +996,7 @@
             ];
         }
         
+        if(sheet !== 'DATA_SANTRI' && !data[2]) { alert('Pilih minimal 1 kelas target!'); return; }
         document.getElementById(btnId).innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
         const res = await callAPI({ action: 'tambahData', sheet: sheet, dataArray: data });
         alert(res.pesan);
