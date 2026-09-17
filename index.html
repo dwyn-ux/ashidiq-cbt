@@ -381,8 +381,8 @@
             <h3 class="font-bold text-slate-700 mb-4"><i class="fas fa-link text-blue-500 mr-2"></i> Tautkan Form ke Ujian</h3>
             <div class="space-y-4">
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">ID UJIAN</label>
-                <input type="text" id="linkform-id" placeholder="ID Ujian (Cth: UJ-01)" class="w-full p-3 border rounded-xl uppercase font-bold outline-none">
+                <label class="text-[10px] font-bold text-slate-400 ml-1">PILIH UJIAN / MAPEL</label>
+                <select id="linkform-id" onchange="onLinkFormChange()" class="w-full p-3 border rounded-xl font-bold outline-none bg-white"><option value="">Memuat daftar ujian...</option></select>
               </div>
               <div>
                 <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM (LINK BIASA)</label>
@@ -659,6 +659,7 @@
       if(id === 'tab-data-ujian') loadDataUjian();
       if(id === 'tab-dokumen') loadDataDokumen();
       if(id === 'tab-input-mapel') loadKelasChecklists();
+      if(id === 'tab-generate') loadLinkFormList();
       if(id === 'tab-unlock-codes') { loadViolationSetting(); }
     }
 
@@ -681,6 +682,7 @@
             }
             switchView('view-admin');
             loadKelasChecklists();
+            loadLinkFormList();
             switchAdminTab('tab-monitoring'); 
         } else { 
             document.getElementById('siswa-nama').innerText = res.nama; 
@@ -830,6 +832,28 @@
       w.className = 'text-xs font-bold rounded-xl p-3 ' + (ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200');
       w.innerText = msg;
     }
+    let cachedMapelList = null;
+    async function loadLinkFormList() {
+      const sel = document.getElementById('linkform-id');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Memuat daftar ujian...</option>';
+      const res = await callAPI({ action: 'getAllMapel' });
+      if (!Array.isArray(res)) { sel.innerHTML = '<option value="">Gagal memuat (' + esc(res.pesan || 'error') + ')</option>'; return; }
+      cachedMapelList = res;
+      sel.innerHTML = '<option value="">-- Pilih ujian --</option>' + res.map(m => `<option value="${esc(m.id)}">${esc(m.id)} — ${esc(m.mapel)} (Kelas: ${esc(m.kelas)}) [${esc(m.status)}]${m.form_url ? ' ✅' : ''}</option>`).join('');
+      if (cur) sel.value = cur;
+      if (sel.value) onLinkFormChange();
+    }
+    function onLinkFormChange() {
+      const id = document.getElementById('linkform-id').value;
+      const m = (cachedMapelList || []).find(x => String(x.id) === String(id));
+      document.getElementById('linkform-url').value = (m && m.form_url) || '';
+      document.getElementById('entry-nis').value = (m && m.entry_nis) || '';
+      document.getElementById('entry-nama').value = (m && m.entry_nama) || '';
+      document.getElementById('entry-kelas').value = (m && m.entry_kelas) || '';
+      document.getElementById('entry-mapel').value = (m && m.entry_mapel) || '';
+      warnLink(m && m.form_url ? 'Link tersimpan dimuat. Ganti URL bila perlu, lalu Simpan.' : '', true);
+    }
     function entryVals() {
       return {
         entryNis: document.getElementById('entry-nis').value.trim(),
@@ -840,8 +864,8 @@
     }
     function validEntry(v) { return v === '' || /^\d{4,12}$/.test(v); }
     async function deteksiEntry() {
-      const id = document.getElementById('linkform-id').value.trim().toUpperCase();
-      if(!id) return alert('Isi ID ujian dulu, lalu Simpan Link sekali sebelum Deteksi.');
+      const id = document.getElementById('linkform-id').value;
+      if(!id) return alert('Pilih ujian dulu.');
       const btn = document.getElementById('btn-detect');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...'; btn.disabled = true;
       const res = await callAPI({ action: 'detectFormEntries', idUjian: id });
@@ -869,9 +893,10 @@
       window.open(base + (q.length ? (base.indexOf('?') < 0 ? '?' : '&') + 'usp=pp_url&' + q.join('&') : ''), '_blank', 'noopener');
     }
     async function simpanLinkForm() {
-      const id = document.getElementById('linkform-id').value.trim().toUpperCase();
+      const id = document.getElementById('linkform-id').value;
       const url = document.getElementById('linkform-url').value.trim();
-      if(!id || !url) return alert('Isi ID ujian dan URL Form!');
+      if(!id) return alert('Pilih ujian dulu!');
+      if(!url) return alert('Isi URL Form!');
       if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('URL harus Google Form (docs.google.com/forms/... atau forms.gle)!');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
