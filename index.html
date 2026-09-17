@@ -52,13 +52,13 @@
   <section id="view-login" class="view-section active min-h-screen items-center justify-center bg-slate-900 bg-[url('https://images.unsplash.com/photo-1555116505-38ab61800975?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center bg-blend-overlay">
     <div class="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-white/20">
       <div class="text-center mb-6">
-        <img src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo Sekolah" class="w-24 mx-auto mb-3 drop-shadow-lg">
+        <img id="login-logo" src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo Sekolah" class="w-24 mx-auto mb-3 drop-shadow-lg" style="cursor:default" onclick="ketukLogo()">
         <h1 class="text-2xl font-bold text-slate-800">CBT Ashidiq</h1>
         <p class="text-slate-500 text-sm font-medium">Portal Ujian Terpadu</p>
       </div>
-      <div class="flex p-1 bg-slate-100 rounded-lg mb-6">
+      <div id="login-role-tabs" class="flex p-1 bg-slate-100 rounded-lg mb-6">
         <button id="tab-siswa" onclick="setLoginRole('siswa')" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600 transition">Santri</button>
-        <button id="tab-admin" onclick="setLoginRole('admin')" class="flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition">Admin / Proktor</button>
+        <button id="tab-admin" onclick="setLoginRole('admin')" style="display:none" class="flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition">Admin / Proktor</button>
       </div>
       <div class="space-y-4">
         <div>
@@ -663,11 +663,30 @@
       if(id === 'tab-unlock-codes') { loadViolationSetting(); }
     }
 
-    function setLoginRole(r) { 
-        currentRole = r; 
+    function setLoginRole(r) {
+        if (r === 'admin' && document.getElementById('tab-admin').style.display === 'none') return;
+        currentRole = r;
         document.getElementById('label-user').innerText = r == 'siswa' ? 'Nomor Induk Siswa (NIS)' : 'Username Admin / Proktor';
-        document.getElementById('tab-siswa').className = r == 'siswa' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
-        document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
+        document.getElementById('tab-siswa').className = r == 'siswa' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500';
+        document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500';
+    }
+    let ketukLog = [];
+    function ketukLogo() {
+        const now = Date.now();
+        ketukLog = ketukLog.filter(t => now - t < 3000);
+        ketukLog.push(now);
+        if (ketukLog.length >= 5) {
+            ketukLog = [];
+            document.getElementById('tab-admin').style.display = '';
+            setLoginRole('admin');
+        }
+    }
+    function sembunyiAdmin() {
+        currentRole = 'siswa';
+        document.getElementById('tab-admin').style.display = 'none';
+        setLoginRole('siswa');
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
     }
 
     function renderSession(res) {
@@ -709,6 +728,7 @@
 
     window.onload = function() {
       loadChecklist();
+      sembunyiAdmin();
       const saved = sessionStorage.getItem('cbt_session');
       if(saved) { try { renderSession(JSON.parse(saved)); } catch(e) {} }
     };
@@ -733,6 +753,7 @@
         try { await callAPI({ action: 'logout' }); } catch(e) {}
         lepasKunciAPK();
         sessionStorage.clear(); sessionUser = null; switchView('view-login');
+        sembunyiAdmin();
     }
 
     // =============================================
