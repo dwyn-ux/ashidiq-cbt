@@ -490,22 +490,36 @@
           <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
         </div>
         <div id="info-chrome" class="bg-blue-50 border-x border-b border-blue-200 px-6 py-3">
-          <p class="text-[11px] font-bold text-blue-700"><i class="fas fa-info-circle mr-1"></i> Soal terbuka di Chrome memakai akun Google HP. Kalau Form minta login, pakai tombol <b>BUKA SOAL DI CHROME</b> di dalam ujian.</p>
+          <p class="text-[11px] font-bold text-blue-700"><i class="fas fa-info-circle mr-1"></i> Alur ujian: login aplikasi, pastikan Google sudah login di Chrome, pilih mapel, isi token, lalu mulai ujian.</p>
+        </div>
+        <div id="google-preflight" class="bg-white border-x border-b border-blue-100 px-6 py-5">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Langkah 1</p>
+              <h3 class="font-black text-slate-800 text-lg">Login Google di Chrome</h3>
+              <p id="google-preflight-status" class="text-xs font-bold text-slate-500 mt-1">Cek sekali sebelum pilih mapel supaya Google Form langsung memakai akun yang benar.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+              <button onclick="mulaiLoginGoogleAwal()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-5 py-3 rounded-xl shadow text-xs transition"><i class="fab fa-google mr-2"></i>LOGIN GOOGLE</button>
+              <button id="btn-google-ready" onclick="tandaiGoogleSiap(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black px-5 py-3 rounded-xl border text-xs transition"><i class="fas fa-check mr-2"></i>SUDAH LOGIN</button>
+            </div>
+          </div>
         </div>
         <div id="list-mapel" class="bg-white p-8 rounded-b-3xl shadow-2xl border-x border-b border-slate-200"><p class="text-center py-10 text-slate-400 font-medium">Memuat...</p></div>
       </div>
       
       <div id="siswa-tahap-ujian" class="hidden h-full flex flex-col">
         <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2 sm:gap-4 min-w-0">
              <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
-              <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
-              <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
+              <div class="min-w-0"><h2 class="font-black text-blue-600 uppercase italic truncate" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
+              <p class="text-[10px] font-bold text-slate-500 truncate" id="identitas-ujian"></p></div>
           </div>
-          <div class="flex items-center gap-2">
-            <button onclick="mintaPintu()" title="Pintu darurat: minta kode ke proktor bila terkendala login Gmail/2FA" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-2 rounded-xl font-black text-xs border border-purple-200 transition"><i class="fas fa-life-ring mr-1"></i> BANTUAN</button>
-            <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
-               <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
+          <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <button type="button" onclick="refreshHalamanUjian()" title="Refresh tampilan ujian" aria-label="Refresh tampilan ujian" class="w-10 h-10 shrink-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition"><i class="fas fa-sync-alt"></i></button>
+            <button onclick="mintaPintu()" title="Pintu darurat: minta kode ke proktor bila terkendala login Gmail/2FA" aria-label="Bantuan" class="h-10 shrink-0 bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 rounded-xl font-black text-xs border border-purple-200 transition"><i class="fas fa-life-ring sm:mr-1"></i><span class="hidden sm:inline"> BANTUAN</span></button>
+            <div id="timer-box" class="h-10 flex items-center bg-blue-100 text-blue-700 px-2 sm:px-4 rounded-xl font-mono font-black text-base sm:text-lg shadow-inner border border-blue-200 transition-colors duration-300">
+               <i class="fas fa-stopwatch mr-2 hidden sm:inline"></i><span id="waktu-mundur">--:--</span>
             </div>
           </div>
         </div>
@@ -529,12 +543,12 @@
         <div id="info-form-chrome" style="display:none" class="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-2 mb-2 text-[11px] font-bold text-blue-700">
           <i class="fas fa-info-circle mr-1"></i> Soal terbuka di <b>Chrome</b>. Kembali ke Chrome untuk mengisi. Selesai & Submit → tekan <b>Back HP</b> → klik tombol hijau di bawah.
         </div>
-        <button id="btn-buka-ulang" onclick="bukaFormDiChrome()" style="display:none" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME LAGI</button>
+        <button id="btn-buka-ulang" onclick="refreshSoalUjian()" style="display:none" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-sync-alt mr-2"></i> REFRESH / BUKA ULANG SOAL</button>
         <div id="area-soal" style="display:none" class="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 text-center">
           <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fas fa-external-link-alt"></i></div>
           <p class="font-black text-slate-700 mb-1">SOAL DIKERJAKAN DI CHROME</p>
           <p class="text-xs text-slate-500 mb-4">Isi & Submit di Chrome. Panel ini untuk timer, status, dan tombol selesai.</p>
-          <button onclick="bukaFormDiChrome()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl text-xs transition"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME LAGI</button>
+          <button onclick="refreshSoalUjian()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl text-xs transition"><i class="fas fa-sync-alt mr-2"></i> REFRESH SOAL</button>
           <p id="status-chrome" class="text-[11px] font-bold text-slate-400 mt-3">Menunggu kembali dari Chrome...</p>
             <div id="time-blocker">
                 <h1>WAKTU UJIAN HABIS!</h1>
@@ -746,6 +760,7 @@
             document.getElementById('siswa-kelas').innerText = res.kelas; 
             document.getElementById('avatar-initial').innerText = res.nama.charAt(0).toUpperCase(); 
             switchView('view-siswa');
+            renderGooglePreflight();
             // ✅ Re-entry lock: app keluar saat ujian → wajib kode admin via mulaiUjian
             try {
               let reentry = sessionStorage.getItem('cbt_reentry') === '1';
@@ -1338,7 +1353,50 @@
     // Penampung endTime server sampai siswa menekan "SOAL SUDAH TERBUKA" (timer mulai di situ).
     // =============================================
     let tabFormChrome = false; // true = siswa sedang mengerjakan soal di Chrome
+    let googleLoginPending = false;
     let res_linkDurasi = 0;
+
+    function googleLoginKey() {
+      const nis = (sessionUser && sessionUser.nis) ? String(sessionUser.nis) : 'umum';
+      return 'cbt_google_ready_' + nis;
+    }
+    function isGoogleReady() {
+      try { return localStorage.getItem(googleLoginKey()) === '1'; } catch(e) { return false; }
+    }
+    function renderGooglePreflight() {
+      const box = document.getElementById('google-preflight');
+      const st = document.getElementById('google-preflight-status');
+      const btn = document.getElementById('btn-google-ready');
+      if (!box || !st) return;
+      if (isGoogleReady()) {
+        box.className = 'bg-emerald-50 border-x border-b border-emerald-200 px-6 py-5';
+        st.className = 'text-xs font-bold text-emerald-700 mt-1';
+        st.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Google ditandai siap di Chrome perangkat ini. Silakan pilih mapel dan masukkan token.';
+        if (btn) btn.innerHTML = '<i class="fas fa-check mr-2"></i>GOOGLE SIAP';
+      } else {
+        box.className = 'bg-white border-x border-b border-blue-100 px-6 py-5';
+        st.className = 'text-xs font-bold text-slate-500 mt-1';
+        st.innerHTML = 'Cek sekali sebelum pilih mapel supaya Google Form langsung memakai akun yang benar.';
+        if (btn) btn.innerHTML = '<i class="fas fa-check mr-2"></i>SUDAH LOGIN';
+      }
+    }
+    function tandaiGoogleSiap(force) {
+      try {
+        if (force || googleLoginPending) localStorage.setItem(googleLoginKey(), '1');
+      } catch(e) {}
+      googleLoginPending = false;
+      renderGooglePreflight();
+      if (sessionUser) loadMapelSiswa(sessionUser.kelas);
+    }
+    function mulaiLoginGoogleAwal() {
+      googleLoginPending = true;
+      bukaLoginGoogleDiChrome();
+      const st = document.getElementById('google-preflight-status');
+      if (st) {
+        st.className = 'text-xs font-bold text-blue-700 mt-1';
+        st.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Selesaikan login Google di Chrome, lalu tekan Back untuk kembali ke aplikasi.';
+      }
+    }
 
     function bukaLoginGoogleDiChrome() {
       const url = 'https://myaccount.google.com/';
@@ -1368,6 +1426,23 @@
       if (w) { try { w.opener = null; } catch(e) {} }
       else window.location.href = url;
     }
+
+    function refreshHalamanUjian() {
+      const timerAktif = !!sessionStorage.getItem('cbt_timer_end');
+      const pesan = timerAktif
+        ? 'Refresh tampilan ujian?\n\nTimer tetap berjalan dan sesi ujian tidak diulang.'
+        : 'Refresh tampilan ujian sekarang?';
+      if (!confirm(pesan)) return;
+      window.location.reload();
+    }
+
+    function refreshSoalUjian() {
+      const url = sessionStorage.getItem('cbt_link_soal') || '';
+      if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
+      if (!confirm('Refresh dan buka ulang soal di Chrome?\n\nPastikan jawaban terakhir sudah tersimpan. Timer tetap berjalan.')) return;
+      bukaFormDiChrome();
+    }
+
     function tampilkanSiapBuka(link) {
       sessionStorage.setItem('cbt_link_soal', link);
       document.getElementById('siap-nama').innerText = (mapelAktif || '') + ' — ' + ((sessionUser && sessionUser.nama) || '');
@@ -1423,6 +1498,7 @@
     // Dipanggil dari native (MainActivity.onResume) saat siswa kembali dari Chrome
     function kembaliDariFormChrome() {
       tabFormChrome = false;
+      if (googleLoginPending) tandaiGoogleSiap(true);
       const b = document.getElementById('info-form-chrome');
       if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Kalau semua jawaban sudah di-Submit, klik tombol <b>SUDAH SUBMIT — SELESAIKAN UJIAN</b> di bawah.';
       const st = document.getElementById('status-chrome');
@@ -1433,6 +1509,7 @@
       if (timerJalan) { try { paksaFullscreen(); } catch(e) {} }
     }
     async function loadMapelSiswa(k) {
+      renderGooglePreflight();
       const res = await callAPI({ action: 'getMapel', kelas: k });
       let html = '';
       if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; }
@@ -1447,6 +1524,11 @@
       await mulaiUjian(id, kode);
     }
     async function mulaiUjian(id, kodeRetry) {
+      if (!isGoogleReady()) {
+        alert('Login Google dulu di Chrome. Setelah kembali ke aplikasi, tekan SUDAH LOGIN lalu masukkan token.');
+        try { document.getElementById('google-preflight').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
+        return;
+      }
       const t = document.getElementById('tk-'+id).value.trim();
       const err = document.getElementById('err-'+id); err.classList.add('hidden');
       if(!t) { err.innerText = "*Token belum diisi!"; err.classList.remove('hidden'); return; }
