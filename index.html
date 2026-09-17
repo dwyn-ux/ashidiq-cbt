@@ -522,6 +522,7 @@
           <p class="text-sm mb-1"><span id="siap-nama" class="font-black"></span> — timer <b>BELUM</b> jalan.</p>
           <p class="text-xs opacity-90 mb-4">1. Klik BUKA SOAL → login Google di Chrome bila diminta (boleh 2FA).<br>2. Setelah soal terbuka & siap diisi, kembali ke sini → klik SOAL SUDAH TERBUKA.</p>
           <button onclick="bukaFormDiChrome()" class="w-full bg-white text-blue-700 font-black py-4 rounded-xl shadow text-sm transition hover:bg-blue-50"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME</button>
+          <button onclick="bukaLoginGoogleDiChrome()" class="mt-2 w-full bg-blue-800 text-white font-black py-3 rounded-xl shadow text-xs transition hover:bg-blue-900"><i class="fab fa-google mr-2"></i> LOGIN GOOGLE DULU (BOLEH 2FA)</button>
           <button id="btn-soal-terbuka" onclick="soalTerbuka()" disabled class="mt-2 w-full bg-slate-400 text-white font-black py-4 rounded-xl shadow text-sm transition"><i class="fas fa-lock mr-2"></i> SOAL SUDAH TERBUKA — MULAI TIMER & KUNCI</button>
           <button onclick="batalUjian()" class="mt-2 text-xs font-bold opacity-80 underline">Batalkan & kembali ke daftar</button>
         </div>
@@ -1339,6 +1340,17 @@
     let tabFormChrome = false; // true = siswa sedang mengerjakan soal di Chrome
     let res_linkDurasi = 0;
 
+    function bukaLoginGoogleDiChrome() {
+      const url = 'https://myaccount.google.com/';
+      if (window.Android && typeof window.Android.openLogin === 'function' && window.Android.openLogin(url)) { tabFormChrome = true; return; }
+      if (window.Android && typeof window.Android.openForm === 'function' && window.Android.openForm(url)) { tabFormChrome = true; return; }
+      tabFormChrome = false;
+      var w = null;
+      try { w = window.open(url, '_blank'); } catch(e) { w = null; }
+      if (w) { try { w.opener = null; } catch(e) {} }
+      else window.location.href = url;
+    }
+
     function bukaFormDiChrome() {
       const url = sessionStorage.getItem('cbt_link_soal') || '';
       if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
@@ -1350,6 +1362,7 @@
         return;
       }
       // Browser biasa / APK lama: tab baru, fallback navigasi penuh bila popup diblokir
+      tabFormChrome = false;
       var w = null;
       try { w = window.open(url, '_blank'); } catch(e) { w = null; }
       if (w) { try { w.opener = null; } catch(e) {} }
@@ -1414,22 +1427,39 @@
       if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Kalau semua jawaban sudah di-Submit, klik tombol <b>SUDAH SUBMIT — SELESAIKAN UJIAN</b> di bawah.';
       const st = document.getElementById('status-chrome');
       if (st) st.innerText = 'Kembali dari Chrome. Lanjut isi atau selesaikan ujian.';
-      try { paksaFullscreen(); } catch(e) {}
+      // Kunci hanya bila timer sudah jalan (tahap kerjakan). Tahap siap-buka
+      // (login Google / 2FA) bebas lock supaya tidak terkunci saat verifikasi.
+      const timerJalan = !!sessionStorage.getItem('cbt_timer_end');
+      if (timerJalan) { try { paksaFullscreen(); } catch(e) {} }
     }
     async function loadMapelSiswa(k) {
       const res = await callAPI({ action: 'getMapel', kelas: k });
       let html = '';
       if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; }
-      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs disabled:bg-slate-300">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); }
+      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs disabled:bg-slate-300">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p><div id="re-${esc(m.idUjian)}" class="hidden px-2 pb-4"><div class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3"><p class="text-[11px] font-black text-amber-700 mb-2"><i class="fas fa-shield-halved mr-1"></i> UJIAN TERKUNCI — MINTA KODE ADMIN KE PENGAWAS</p><div class="flex gap-2"><input type="text" id="rk-${esc(m.idUjian)}" placeholder="KODE ADMIN" maxlength="8" class="flex-1 border-2 p-3 rounded-xl text-center uppercase font-black tracking-widest outline-none focus:border-amber-500"><button onclick="lanjutDenganKode('${jsq(m.idUjian)}')" class="bg-amber-500 text-white px-5 py-3 rounded-xl font-black shadow hover:bg-amber-600 uppercase text-xs">UNLOCK & LANJUT</button></div></div></div>`; }); }
       document.getElementById('list-mapel').innerHTML = html;
     }
 
-    async function mulaiUjian(id) {
+    async function lanjutDenganKode(id) {
+      const inp = document.getElementById('rk-'+id);
+      const kode = (inp ? inp.value : '').trim().toUpperCase();
+      if(!kode) { alert('Masukkan KODE ADMIN dari pengawas!'); return; }
+      await mulaiUjian(id, kode);
+    }
+    async function mulaiUjian(id, kodeRetry) {
       const t = document.getElementById('tk-'+id).value.trim();
       const err = document.getElementById('err-'+id); err.classList.add('hidden');
       if(!t) { err.innerText = "*Token belum diisi!"; err.classList.remove('hidden'); return; }
-      const res = await callAPI({ action: 'mulaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, idUjian: id, inputToken: t });
+      const kirim = async (kode) => await callAPI({ action: 'mulaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, idUjian: id, inputToken: t, reentryCode: kode || '' });
+      const tampilBoxKode = (on) => { const b = document.getElementById('re-'+id); if(b) b.classList.toggle('hidden', !on); };
+      let res = await kirim(kodeRetry || '');
+      if(!res.sukses && (res.kode === 'REENTRY_REQUIRED' || res.kode === 'REENTRY_INVALID') && !kodeRetry) {
+        err.innerText = "* " + res.pesan; err.classList.remove('hidden');
+        tampilBoxKode(true);
+        return;
+      }
       if(res.sukses) { 
+          tampilBoxKode(false);
           mapelAktif = res.mapel; 
           idUjianAktif = id; // ✅ Simpan ID ujian asli (bukan nama mapel)
           sessionStorage.setItem('cbt_mapel_aktif', res.mapel); 
@@ -1445,12 +1475,14 @@
           document.getElementById('siswa-tahap-ujian').classList.remove('hidden');
           document.getElementById('judul-mapel-ujian').innerText = res.mapel;
           document.getElementById('identitas-ujian').innerText = sessionUser.nama + ' (' + sessionUser.nis + ' - ' + sessionUser.kelas + ')';
-          paksaFullscreen();
-          // LANGKAH 1/2 — token benar, timer BELUM jalan. Siswa buka soal di Chrome,
-          // timer + kunci soal baru mulai saat tombol "SOAL SUDAH TERBUKA" ditekan.
+          try { lepasKunciAPK(); } catch(e) {}
+          // LANGKAH 1/2 — token benar, timer BELUM jalan, kunci BELUM aktif.
+          // Siswa bebas buka Chrome untuk login Google + 2FA.
+          // Kunci (setExamMode) baru aktif saat "SOAL SUDAH TERBUKA" ditekan.
           tampilkanSiapBuka(res.link);
       } else {
         err.innerText = "* " + res.pesan; err.classList.remove('hidden');
+        if(res.kode === 'REENTRY_INVALID') tampilBoxKode(true);
         // Kalau ada flag keluar-app saat ujian, coba clear bila sesi lama sudah tidak aktif
         try {
           if (sessionStorage.getItem('cbt_reentry') === '1') {
@@ -1752,6 +1784,7 @@
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
       document.getElementById('lock-violation-count').innerText = pelanggaran;
       document.getElementById('lock-screen').style.display = 'flex';
+      setTimeout(() => { try { document.getElementById('unlock-code-input').focus(); } catch(e) {} }, 100);
     }
 
     async function unlockExam() {
@@ -1776,6 +1809,8 @@
     function recordViolation() {
       const ujianSection = document.getElementById('siswa-tahap-ujian');
       if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || pintuDarurat || tabFormChrome) return;
+      // Tahap siap-buka (token benar, timer belum jalan): login Google/2FA bebas lock.
+      if(!sessionStorage.getItem('cbt_timer_end')) return;
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
@@ -1829,6 +1864,7 @@
 
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
+      if(!sessionStorage.getItem('cbt_timer_end')) return; // tahap siap-buka: bebas lock
       if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !pintuDarurat && !tabFormChrome) {
         setTimeout(() => {
           recordViolation();
@@ -1857,6 +1893,7 @@
         pelanggaran  = parseInt(savedVio) || 0;
         document.getElementById('lock-violation-count').innerText = pelanggaran;
         document.getElementById('lock-screen').style.display = 'flex';
+        setTimeout(() => { try { document.getElementById('unlock-code-input').focus(); } catch(e) {} }, 100);
       }
       if(savedVio) pelanggaran = parseInt(savedVio) || 0;
     }

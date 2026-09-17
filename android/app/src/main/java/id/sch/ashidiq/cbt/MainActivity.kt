@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity() {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
       val host = u.host ?: return false
       if ((u.scheme ?: "") != "https") return false
-      if (formHosts.none { host == it || host.endsWith(".$it") }) return false
+      if (formHosts.none { host == it || host.endsWith(".$it") } && loginHosts.none { host == it || host.endsWith(".$it") }) return false
       val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
       return try {
         formTab = true
@@ -108,19 +108,27 @@ class MainActivity : AppCompatActivity() {
       } catch (e: Exception) { formTab = false; false }
     }
 
-    // Tombol "BUKA LOGIN GOOGLE": navigasi dipaksa native lewat WebView.loadUrl.
-    // window.open + deteksi user agent tidak andal di WebView → tombol terasa "tidak merespon".
-    // Catatan: di mode TWA (halaman dijalankan Chrome) bridge ini tidak ada, dan memang tidak perlu.
+    // Tombol "BUKA LOGIN GOOGLE": dibuka di Chrome (Custom Tab) seperti soal,
+    // supaya login + verifikasi 2 langkah bisa jalan. WebView.loadUrl TIDAK dipakai:
+    // cookie store WebView terpisah + Google blokir sign-in di WebView (disallowed_useragent).
     @JavascriptInterface
     fun openLogin(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
       val host = u.host ?: return false
       if ((u.scheme ?: "") != "https") return false
       if (loginHosts.none { host == it || host.endsWith(".$it") }) return false
+      val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
       return try {
-        act.runOnUiThread { try { web.loadUrl(u.toString()) } catch (e: Exception) { } }
+        formTab = true
+        act.runOnUiThread {
+          try {
+            val tabs = CustomTabsIntent.Builder().setShowTitle(false).setUrlBarHidingEnabled(true).build()
+            tabs.intent.setPackage(pkg)
+            tabs.launchUrl(act, u)
+          } catch (e: Exception) { formTab = false }
+        }
         true
-      } catch (e: Exception) { false }
+      } catch (e: Exception) { formTab = false; false }
     }
   }
 
