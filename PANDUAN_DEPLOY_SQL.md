@@ -49,10 +49,49 @@ Sumber: `backend/` (API), `index.html` (frontend). Tidak perlu Apps Script / Spr
 2. `cp index.html android/app/src/main/assets/index.html` tiap update web.
 3. Android Studio > Build APK. Instalasi normal (best-effort lock).
 
+## 6. Mode TWA (Chrome) vs WebView
+
+WebView bawaan app **tidak bisa** memakai login Google Chrome (cookie store terpisah per-app) dan Google memblokir sign-in di WebView (`disallowed_useragent`). Karena itu ada dua mode di `build.gradle`:
+
+```groovy
+buildConfigField("String", "LAUNCH_MODE", "\"twa\"")   // atau "webview"
+```
+
+| | `twa` (default) | `webview` |
+|---|---|---|
+| Halaman dijalankan | Chrome (Trusted Web Activity) | WebView dalam app |
+| Login Google | Ikut profil Chrome — tidak diminta login/2FA | Diblokir Google |
+| `FLAG_SECURE` anti screenshot | Tidak aktif | Aktif |
+| Bridge JS kunci ujian (`Android.setExamMode`) | Tidak ada | Ada |
+| Re-entry code saat keluar app | Tidak ada — harus divalidasi server | Ada |
+
+Ganti mode = ubah satu baris `LAUNCH_MODE` lalu build ulang.
+
+### Menyalakan TWA penuh (tanpa address bar)
+
+Kalau `assetlinks.json` belum terpasang, TWA otomatis turun jadi Custom Tab (masih profil Chrome, tapi muncul address bar). Untuk versi penuh:
+
+1. Upload folder `.well-known/` dari repo ke **root subdomain** `cbt.smpmuashidiq.sch.id`, sejajar dengan `index.html`:
+   ```
+   https://cbt.smpmuashidiq.sch.id/.well-known/assetlinks.json
+   ```
+   Harus bisa dibuka langsung di browser dan bertipe `application/json` (bukan HTML). Redirect ke halaman lain = verifikasi gagal.
+2. Fingerprint di file itu = keystore `ashidiq-release.jks` (dipakai APK testing lokal). Ambil ulang dengan:
+   ```bash
+   keytool -list -v -keystore ashidiq-release.jks -alias ashidiq
+   ```
+3. **Untuk APK dari Play Store**, tambahkan SHA-256 dari Play Console > app > Test and release > Setup > App integrity > App signing key certificate ke array `sha256_cert_fingerprints` (boleh lebih dari satu). Kalau tidak ditambah, APK Play Store hanya dapat Custom Tab + address bar.
+4. Cek hasilnya: https://developers.google.com/digital-asset-links/tools/generator atau buka URL site dengan `?` — kalau masih ada address bar, `assetlinks.json` belum terbaca.
+
+> Sebelum ujian: `LAUNCH_MODE=twa` belum pernah diuji di HP siswa. Kalau bermasalah, kembali ke `webview` dan build ulang — kode mode lama tetap utuh di `MainActivity.kt`.
+
 ## Troubleshooting
 
 | Gejala | Penyebab | Fix |
 |---|---|---|
+| Mode TWA muncul address bar | `assetlinks.json` belum ada/salah | Ikuti bagian 6 |
+| Mode TWA dan siswa keluar app tidak minta kode | Re-entry code masih di app | Validasi gap `sessions.last_seen` di server |
+| Screenshot bisa diambil di mode TWA | `FLAG_SECURE` tidak berlaku untuk Chrome | Pindahkan deteksi ke server, atau pakai `webview` |
 | `SQLSTATE` / blank JSON | Kredensial `config.php` salah | Samakan dengan cPanel |
 | Loop reload | Token expired/hapus | Login ulang |
 | Mapel tidak muncul | Status Nonaktif / di luar jadwal / kelas tak cocok | Cek jadwal + format kelas target |

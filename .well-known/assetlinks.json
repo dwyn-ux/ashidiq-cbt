@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ashidiq.test",
+      "sha256_cert_fingerprints": [
+        "D1:D6:AC:91:EA:C2:BA:73:0A:04:45:09:2B:C4:CA:E3:C6:1B:14:BD:E2:1A:49:67:17:56:D8:28:AE:0E:DB:21"
+      ]
+    }
+  }
+]

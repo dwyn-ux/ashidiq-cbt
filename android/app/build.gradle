@@ -6,10 +6,14 @@ compileSdk = 36
       applicationId = "com.ashidiq.test"
       minSdk = 26
       targetSdk = 36
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
         buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
         buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
+        // "twa" = halaman ujian dibuka oleh Chrome (Trusted Web Activity) → ikut profil & login Google Chrome,
+        //         sehingga Google Form tidak minta login/2FA. "webview" = mode lama (lockdown penuh:
+        //         FLAG_SECURE + bridge JS kunci ujian + re-entry code), tapi login Google diblokir Google.
+        buildConfigField("String", "LAUNCH_MODE", "\"twa\"")
     }
     signingConfigs {
         release {
@@ -31,4 +35,8 @@ compileSdk = 36
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { buildConfig = true }
 }
-dependencies { implementation("androidx.core:core-ktx:1.13.1"); implementation("androidx.appcompat:appcompat:1.7.0") }
+dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.browser:browser:1.8.0")
+}

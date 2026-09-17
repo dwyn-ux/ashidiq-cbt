@@ -6,26 +6,49 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.WindowManager
-import android.webkit.JavascriptInterface
-import android.webkit.SslErrorHandler
+import android.webkit.CookieManager
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
+import android.webkit.JavascriptInterface
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsClient
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.browser.customtabs.TrustedWebUtils
 
+/**
+ * Dua mode, dipilih lewat BuildConfig.LAUNCH_MODE:
+ *
+ * - "twa"     → halaman ujian dibuka Chrome sebagai Trusted Web Activity. Profil & cookie Chrome
+ *               ikut terpakai, jadi siswa yang sudah login Google di Chrome tidak diminta login/2FA
+ *               lagi. WebView bawaan app tidak bisa begini: cookie store-nya terpisah per-app, dan
+ *               Google memblokir sign-in di WebView (disallowed_useragent).
+ * - "webview" → mode lama, halaman dimuat di WebView dalam app. Lockdown penuh (FLAG_SECURE,
+ *               bridge JS kunci ujian, re-entry code) tapi login Google tidak bisa diandalkan.
+ *
+ * Kalau assetlinks.json belum terpasang atau Chrome tidak ada, TWA otomatis turun ke Custom Tab
+ * (masih profil Chrome, muncul address bar) → browser default HP → terakhir WebView bawaan app.
+ */
 class MainActivity : AppCompatActivity() {
   private lateinit var web: WebView
+  private lateinit var splash: View
+  private lateinit var splashInfo: TextView
+  private val twaMode = "twa".equals(BuildConfig.LAUNCH_MODE, ignoreCase = true)
+  private var tabLaunched = false
   private var examMode = false
   private lateinit var dpm: DevicePolicyManager
   private lateinit var admin: ComponentName
@@ -57,6 +80,7 @@ class MainActivity : AppCompatActivity() {
 
     // Tombol "BUKA LOGIN GOOGLE": navigasi dipaksa native lewat WebView.loadUrl.
     // window.open + deteksi user agent tidak andal di WebView → tombol terasa "tidak merespon".
+    // Catatan: di mode TWA (halaman dijalankan Chrome) bridge ini tidak ada, dan memang tidak perlu.
     @JavascriptInterface
     fun openLogin(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
@@ -72,7 +96,10 @@ class MainActivity : AppCompatActivity() {
 
   companion object {
     private const val PREFS = "cbt_lock"
+    private const val CHROME_PKG = "com.android.chrome"
     private val loginHosts = listOf("myaccount.google.com", "accounts.google.com")
+    // Urutan preferensi browser yang mendukung TWA / Custom Tabs
+    private val tabPackages = listOf("com.android.chrome", "com.chrome.beta", "com.android.chrome.beta", "com.chrome.dev")
   }
 
   private fun isOwner(): Boolean = try { dpm.isDeviceOwnerApp(packageName) } catch (e: Exception) { false }
@@ -83,13 +110,63 @@ class MainActivity : AppCompatActivity() {
     setContentView(R.layout.activity_main)
     dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
     admin = ComponentName(this, AdminReceiver::class.java)
-    // ponytail: non-owner = best-effort pin + foreground guard; upgrade = dpm set-device-owner per HP untuk lock penuh.
-    try { if (isOwner()) dpm.setLockTaskPackages(admin, arrayOf(packageName)) } catch (e: Exception) { }
+    // Kiosk: whitelist app + Chrome supaya lock task mode tetap menahan siswa walau halaman dibuka Chrome
+    try { if (isOwner()) dpm.setLockTaskPackages(admin, arrayOf(packageName, CHROME_PKG)) } catch (e: Exception) { }
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     web = findViewById(R.id.web)
+    splash = findViewById(R.id.splash)
+    splashInfo = findViewById(R.id.splash_info)
+    findViewById<View>(R.id.splash_retry).setOnClickListener {
+      tabLaunched = false
+      launchTab()
+    }
+    if (twaMode) launchTab() else setupWebView(b)
+  }
+
+  // ===================== MODE TWA =====================
+  private fun launchTab() {
+    web.visibility = View.GONE
+    splash.visibility = View.VISIBLE
+    splashInfo.text = "Membuka halaman ujian di Chrome..."
+    val uri = Uri.parse(BuildConfig.WEB_URL)
+    val pkg = try { CustomTabsClient.getPackageName(this, tabPackages) } catch (e: Exception) { null }
+    if (pkg == null) { openExternal(uri); return }
+    val tabs = try { CustomTabsIntent.Builder().setShowTitle(false).setUrlBarHidingEnabled(true).build() } catch (e: Exception) { null }
+    if (tabs == null) { openExternal(uri); return }
+    val ok = try {
+      // TWA: tanpa address bar kalau domain terverifikasi lewat .well-known/assetlinks.json.
+      // Belum terverifikasi → Chrome otomatis menampilkannya sebagai Custom Tab, tetap profil Chrome.
+      TrustedWebUtils.launchAsTrustedWebActivity(this, tabs, uri)
+      true
+    } catch (e: Exception) {
+      try { tabs.launchUrl(this, uri); true } catch (e2: Exception) { false }
+    }
+    if (ok) tabLaunched = true else openExternal(uri)
+  }
+
+  private fun openExternal(uri: Uri) {
+    val ok = try {
+      startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      tabLaunched = true
+      true
+    } catch (e: Exception) { false }
+    if (!ok) {
+      // Tidak ada browser sama sekali → pakai WebView dalam app supaya ujian tetap bisa jalan
+      splash.visibility = View.GONE
+      web.visibility = View.VISIBLE
+      splashInfo.text = "Chrome tidak tersedia, memakai tampilan bawaan app."
+      setupWebView(null)
+    }
+  }
+
+  // ===================== MODE WEBVIEW =====================
+  @SuppressLint("SetJavaScriptEnabled")
+  private fun setupWebView(b: Bundle?) {
+    web.visibility = View.VISIBLE
+    splash.visibility = View.GONE
     // Cookie Gmail harus ikut terkirim ke iframe Google Form, kalau tidak siswa diminta login lagi di tengah ujian
     try {
-      val cm = android.webkit.CookieManager.getInstance()
+      val cm = CookieManager.getInstance()
       cm.setAcceptCookie(true)
       cm.setAcceptThirdPartyCookies(web, true)
     } catch (e: Exception) { }
@@ -219,15 +296,20 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onPause() {
-    if (examMode) bringBack()
+    if (!twaMode && examMode) bringBack()
     super.onPause()
   }
 
   override fun onUserLeaveHint() {
-    if (examMode) bringBack()
+    if (!twaMode && examMode) bringBack()
   }
 
   override fun onBackPressed() {
+    // Mode TWA: Back tidak boleh keluar app, halaman dibuka ulang
+    if (twaMode) {
+      if (tabLaunched) launchTab() else super.onBackPressed()
+      return
+    }
     if (examMode) return
     if (::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed()
   }
