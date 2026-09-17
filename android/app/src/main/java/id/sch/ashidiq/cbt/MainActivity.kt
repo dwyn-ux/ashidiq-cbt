@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
   private lateinit var splashInfo: TextView
   private val twaMode = "twa".equals(BuildConfig.LAUNCH_MODE, ignoreCase = true)
   private var tabLaunched = false
+  // true = siswa sedang mengerjakan soal di Chrome Custom Tab; selama ini kunci ujian & bringBack dimatikan
+  private var formTab = false
   private var examMode = false
   private lateinit var dpm: DevicePolicyManager
   private lateinit var admin: ComponentName
@@ -78,6 +80,30 @@ class MainActivity : AppCompatActivity() {
       try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
     }
 
+    // Tombol "BUKA SOAL DI CHROME": Google Form dibuka di Chrome (Custom Tab) supaya memakai
+    // profil & akun Google HP. Ini satu-satunya cara: cookie store WebView terpisah dari Chrome,
+    // dan Google memblokir sign-in di WebView (disallowed_useragent).
+    // Return false = JS pakai fallback (window.open / navigasi penuh).
+    @JavascriptInterface
+    fun openForm(url: String): Boolean {
+      val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
+      val host = u.host ?: return false
+      if ((u.scheme ?: "") != "https") return false
+      if (formHosts.none { host == it || host.endsWith(".$it") }) return false
+      val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
+      return try {
+        formTab = true
+        act.runOnUiThread {
+          try {
+            val tabs = CustomTabsIntent.Builder().setShowTitle(false).setUrlBarHidingEnabled(true).build()
+            tabs.intent.setPackage(pkg)
+            tabs.launchUrl(act, u)
+          } catch (e: Exception) { formTab = false }
+        }
+        true
+      } catch (e: Exception) { formTab = false; false }
+    }
+
     // Tombol "BUKA LOGIN GOOGLE": navigasi dipaksa native lewat WebView.loadUrl.
     // window.open + deteksi user agent tidak andal di WebView → tombol terasa "tidak merespon".
     // Catatan: di mode TWA (halaman dijalankan Chrome) bridge ini tidak ada, dan memang tidak perlu.
@@ -98,6 +124,7 @@ class MainActivity : AppCompatActivity() {
     private const val PREFS = "cbt_lock"
     private const val CHROME_PKG = "com.android.chrome"
     private val loginHosts = listOf("myaccount.google.com", "accounts.google.com")
+    private val formHosts = listOf("docs.google.com", "forms.gle", "forms.google.com")
     // Urutan preferensi browser yang mendukung TWA / Custom Tabs
     private val tabPackages = listOf("com.android.chrome", "com.chrome.beta", "com.android.chrome.beta", "com.chrome.dev")
   }
@@ -248,8 +275,9 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onStop() {
-    // App keluar dari layar saat examMode (home/overview/app lain/screen off) → tandai re-entry lock
-    if (examMode) {
+    // App keluar dari layar saat examMode (home/overview/app lain/screen off) → tandai re-entry lock.
+    // formTab dikecualikan: siswa memang sengaja keluar ke Chrome untuk mengisi soal.
+    if (examMode && !formTab) {
       try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", true).apply() } catch (e: Exception) { }
     }
     super.onStop()
@@ -293,15 +321,20 @@ class MainActivity : AppCompatActivity() {
   override fun onResume() {
     super.onResume()
     immersive()
+    // Siswa kembali dari Chrome → buka kunci pelanggaran & minta fullscreen lagi
+    if (formTab) {
+      formTab = false
+      try { web.evaluateJavascript("if (typeof kembaliDariFormChrome === 'function') kembaliDariFormChrome();", null) } catch (e: Exception) { }
+    }
   }
 
   override fun onPause() {
-    if (!twaMode && examMode) bringBack()
+    if (!twaMode && examMode && !formTab) bringBack()
     super.onPause()
   }
 
   override fun onUserLeaveHint() {
-    if (!twaMode && examMode) bringBack()
+    if (!twaMode && examMode && !formTab) bringBack()
   }
 
   override fun onBackPressed() {

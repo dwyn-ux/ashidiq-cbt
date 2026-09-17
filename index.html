@@ -486,24 +486,8 @@
           <div><h2 class="text-2xl font-black italic tracking-tighter">DAFTAR UJIAN AKTIF</h2></div>
           <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
         </div>
-        <div id="google-gate" class="bg-amber-50 border-x border-b border-amber-200 px-6 py-4">
-          <div id="google-gate-pending">
-            <p class="font-black text-amber-700 text-sm mb-1">LANGKAH 1 — LOGIN GMAIL DULU (WAJIB)</p>
-            <p class="text-xs text-amber-600 mb-3">Klik tombol di bawah, login akun Google sampai muncul halaman <b>My Account</b> (foto/inisial akun), lalu kembali ke aplikasi dengan tombol <b>Back HP</b>. Tanpa ini Form minta login + 2FA di tengah ujian.</p>
-            <div class="flex gap-2 mb-3">
-              <button onclick="bukaLoginGoogle()" class="bg-red-600 hover:bg-red-700 text-white font-black px-5 py-3 rounded-xl text-xs transition">BUKA LOGIN GOOGLE</button>
-            </div>
-            <label class="flex items-start gap-2 text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" id="cek-google" onchange="toggleGoogle(this.checked)" class="w-5 h-5 mt-0.5"> Saya sudah login Gmail — buka kunci token & MULAI</label>
-            <p id="gate-hint" class="text-[11px] font-bold text-red-500 mt-2 hidden"></p>
-          </div>
-          <div id="google-gate-done" style="display:none" class="flex items-start gap-3">
-            <i class="fas fa-check-circle text-green-600 text-2xl mt-0.5"></i>
-            <div>
-              <p class="font-black text-green-700 text-sm">✅ LOGIN GOOGLE BERHASIL</p>
-              <p class="text-xs text-green-600">Akun Gmail siap dipakai mengerjakan. Silakan isi token ujian di bawah.</p>
-              <button onclick="resetGoogleGate()" class="mt-1 text-[11px] font-bold text-slate-400 underline hover:text-slate-600 transition">Login ulang / ganti akun</button>
-            </div>
-          </div>
+        <div id="info-chrome" class="bg-blue-50 border-x border-b border-blue-200 px-6 py-3">
+          <p class="text-[11px] font-bold text-blue-700"><i class="fas fa-info-circle mr-1"></i> Soal terbuka di Chrome memakai akun Google HP. Kalau Form minta login, pakai tombol <b>BUKA SOAL DI CHROME</b> di dalam ujian.</p>
         </div>
         <div id="list-mapel" class="bg-white p-8 rounded-b-3xl shadow-2xl border-x border-b border-slate-200"><p class="text-center py-10 text-slate-400 font-medium">Memuat...</p></div>
       </div>
@@ -530,6 +514,10 @@
             <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batalkan sesi & ke daftar</button>
           </div>
         </div>
+        <div id="info-form-chrome" class="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-2 mb-2 text-[11px] font-bold text-blue-700">
+          <i class="fas fa-info-circle mr-1"></i> Kalau Form di bawah minta login Google, klik <b>BUKA SOAL DI CHROME</b>.
+        </div>
+        <button onclick="bukaFormDiChrome()" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME (AKUN GOOGLE HP)</button>
         <div class="iframe-wrapper shadow-2xl relative">
             <iframe id="iframe-soal" src="" allowfullscreen></iframe>
             <div id="time-blocker">
@@ -742,8 +730,6 @@
             document.getElementById('siswa-kelas').innerText = res.kelas; 
             document.getElementById('avatar-initial').innerText = res.nama.charAt(0).toUpperCase(); 
             switchView('view-siswa');
-            try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
-            renderGoogleGate();
             // ✅ Re-entry lock: app keluar saat ujian → wajib kode admin via mulaiUjian
             try {
               let reentry = sessionStorage.getItem('cbt_reentry') === '1';
@@ -1320,67 +1306,42 @@
         }, 20000);
     }
 
-    let googleSiap = false;
-    try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
-    let googleLoginDibuka = false;
-    try { googleLoginDibuka = sessionStorage.getItem('cbt_google_dibuka') === '1'; } catch(e) {}
-    // ✅ APK WebView: navigasi same-window (popup sering blank); browser: popup biasa
-    const IS_APK_WEBVIEW = location.protocol === 'file:' || /;\s*wv\)/i.test(navigator.userAgent);
-    const GOOGLE_LOGIN_URL = 'https://myaccount.google.com/'; // halaman My Account = tanda login sukses
-    function setGateHint(msg) {
-      const h = document.getElementById('gate-hint');
-      if (h) { h.innerText = msg || ''; if (msg) h.classList.remove('hidden'); else h.classList.add('hidden'); }
-    }
-    function renderGoogleGate() {
-      const gate = document.getElementById('google-gate');
-      const p = document.getElementById('google-gate-pending');
-      const d = document.getElementById('google-gate-done');
-      const cg = document.getElementById('cek-google');
-      if (p) p.style.display = googleSiap ? 'none' : '';
-      if (d) d.style.display = googleSiap ? 'flex' : 'none';
-      if (cg && !cg.disabled) cg.checked = googleSiap;
-      document.querySelectorAll('#list-mapel input, #list-mapel button').forEach(el => { el.disabled = !googleSiap; });
-      if (gate) {
-        gate.classList.toggle('bg-amber-50', !googleSiap); gate.classList.toggle('border-amber-200', !googleSiap);
-        gate.classList.toggle('bg-green-50', googleSiap); gate.classList.toggle('border-green-200', googleSiap);
-      }
-    }
-    function bukaLoginGoogle() {
-      googleLoginDibuka = true;
-      try { sessionStorage.setItem('cbt_google_dibuka', '1'); } catch(e) {}
-      setGateHint('Membuka halaman login Google... setelah halaman My Account muncul, kembali ke aplikasi pakai tombol Back HP.');
-      // 1) APK: navigasi dipaksa dari native (WebView.loadUrl) — popup & deteksi user agent tidak andal
-      try {
-        if (window.Android && typeof window.Android.openLogin === 'function' && window.Android.openLogin(GOOGLE_LOGIN_URL)) return;
-      } catch(e) {}
-      // 2) WebView lain / file:// : navigasi same-window
-      if (IS_APK_WEBVIEW) { window.location.href = GOOGLE_LOGIN_URL; return; }
-      // 3) Browser: tab baru, fallback navigasi penuh bila popup diblokir
-      var w = null;
-      try { w = window.open(GOOGLE_LOGIN_URL, '_blank'); } catch(e) { w = null; }
-      if (w) { try { w.opener = null; } catch(e) {} } else window.location.href = GOOGLE_LOGIN_URL;
-    }
-    function toggleGoogle(v) {
-      if (v && !googleLoginDibuka) {
-        const cg = document.getElementById('cek-google');
-        if (cg) cg.checked = false;
-        setGateHint('Klik "BUKA LOGIN GOOGLE" dulu, login sampai muncul halaman My Account, baru centang di sini.');
+    // =============================================
+    // Soal dibuka di Chrome (Custom Tab) supaya memakai profil & akun Google HP.
+    // WebView dalam app TIDAK punya sesi Google, dan Google memblokir login di WebView
+    // (disallowed_useragent) — jadi Form-nya dititipkan ke Chrome. Lock ujian tetap jalan:
+    // selama di Chrome, hitungan pelanggaran & re-entry lock dimatikan sementara.
+    // =============================================
+    let tabFormChrome = false; // true = siswa sedang mengerjakan soal di Chrome
+
+    function bukaFormDiChrome() {
+      const url = sessionStorage.getItem('cbt_link_soal') || '';
+      if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
+      if (window.Android && typeof window.Android.openForm === 'function' && window.Android.openForm(url)) {
+        tabFormChrome = true;
+        const b = document.getElementById('info-form-chrome');
+        if (b) b.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i> Soal terbuka di <b>Chrome</b>. Selesai mengisi & Submit → tekan <b>Back HP</b> untuk kembali ke sini.';
         return;
       }
-      googleSiap = !!v;
-      try { sessionStorage.setItem('cbt_google_siap', googleSiap ? '1' : '0'); } catch(e) {}
-      renderGoogleGate();
+      // Browser biasa / APK lama: tab baru, fallback navigasi penuh bila popup diblokir
+      var w = null;
+      try { w = window.open(url, '_blank'); } catch(e) { w = null; }
+      if (w) { try { w.opener = null; } catch(e) {} }
+      else window.location.href = url;
     }
-    function resetGoogleGate() {
-      googleSiap = false;
-      try { sessionStorage.setItem('cbt_google_siap', '0'); } catch(e) {}
-      renderGoogleGate();
+
+    // Dipanggil dari native (MainActivity.onResume) saat siswa kembali dari Chrome
+    function kembaliDariFormChrome() {
+      tabFormChrome = false;
+      const b = document.getElementById('info-form-chrome');
+      if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Kalau semua jawaban sudah di-Submit, klik tombol <b>SUDAH SUBMIT — SELESAIKAN UJIAN</b> di bawah.';
+      try { paksaFullscreen(); } catch(e) {}
     }
     async function loadMapelSiswa(k) {
       const res = await callAPI({ action: 'getMapel', kelas: k });
       let html = '';
       if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; }
-      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" ${googleSiap ? '' : 'disabled'} class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" ${googleSiap ? '' : 'disabled'} class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs disabled:bg-slate-300">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); html += `<p class="text-center text-[11px] font-bold text-slate-400 mt-4">Token & tombol MULAI terbuka setelah centang login Gmail di atas.</p>`; }
+      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs disabled:bg-slate-300">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); }
       document.getElementById('list-mapel').innerHTML = html;
     }
 
@@ -1769,7 +1730,7 @@
 
     function recordViolation() {
       const ujianSection = document.getElementById('siswa-tahap-ujian');
-      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || pintuDarurat) return;
+      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || pintuDarurat || tabFormChrome) return;
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
@@ -1825,7 +1786,7 @@
     // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
-      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !pintuDarurat) {
+      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !pintuDarurat && !tabFormChrome) {
         // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
         setTimeout(() => {
           const active = document.activeElement;

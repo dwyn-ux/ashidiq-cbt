@@ -49,21 +49,38 @@ Sumber: `backend/` (API), `index.html` (frontend). Tidak perlu Apps Script / Spr
 2. `cp index.html android/app/src/main/assets/index.html` tiap update web.
 3. Android Studio > Build APK. Instalasi normal (best-effort lock).
 
-## 6. Mode TWA (Chrome) vs WebView
+## 6. Mode halaman: HYBRID (default) / TWA
 
-WebView bawaan app **tidak bisa** memakai login Google Chrome (cookie store terpisah per-app) dan Google memblokir sign-in di WebView (`disallowed_useragent`). Karena itu ada dua mode di `build.gradle`:
+WebView bawaan app **tidak bisa** memakai login Google Chrome (cookie store terpisah per-app) dan Google memblokir sign-in di WebView (`disallowed_useragent`). Jadi akun Google tidak mungkin dipakai dari dalam WebView. Pilihannya di `build.gradle`:
 
 ```groovy
-buildConfigField("String", "LAUNCH_MODE", "\"twa\"")   // atau "webview"
+buildConfigField("String", "LAUNCH_MODE", "\"webview\"")   // default = HYBRID
 ```
 
-| | `twa` (default) | `webview` |
+### HYBRID (`webview`, dipakai sekarang)
+
+Halaman ujian tetap di WebView dalam app → **lockdown utuh**: `FLAG_SECURE`, kunci JS `Android.setExamMode`, re-entry code, blokir Back, lock pelanggaran.
+
+Yang dipinjam dari Chrome hanya **Google Form-nya**. Di layar ujian ada tombol **BUKA SOAL DI CHROME** → bridge `Android.openForm(url)` membuka Form lewat **Chrome Custom Tab**, jadi memakai profil & akun Google HP: tidak ada login/2FA lagi.
+
+- Selama di Chrome, `formTab=true` mematikan sementara hitungan pelanggaran, re-entry lock, dan `bringBack()` — supaya siswa tidak dianggap keluar app.
+- Saat siswa menekan **Back HP**, `kembaliDariFormChrome()` menyalakan kuncinya lagi dan meminta fullscreen.
+- Kalau Form-nya sendiri tidak mewajibkan login, biarkan siswa pakai iframe di dalam app dan jangan pakai tombol Chrome — Custom Tab menampilkan address bar, jadi ada celah siswa mengetik URL lain.
+
+> Gate "LANGKAH 1 — LOGIN GMAIL DULU" sudah **dihapus**. Gate itu mustahil dipenuhi di WebView (Google memblokir login di WebView), dan sekarang digantikan jalur Chrome di atas.
+
+### TWA (`twa`)
+
+Seluruh halaman dijalankan Chrome sebagai Trusted Web Activity. Ikut profil Chrome sepenuhnya, tapi kunci JS dan `FLAG_SECURE` hilang.
+
+| | `webview` (HYBRID, default) | `twa` |
 |---|---|---|
-| Halaman dijalankan | Chrome (Trusted Web Activity) | WebView dalam app |
-| Login Google | Ikut profil Chrome — tidak diminta login/2FA | Diblokir Google |
-| `FLAG_SECURE` anti screenshot | Tidak aktif | Aktif |
-| Bridge JS kunci ujian (`Android.setExamMode`) | Tidak ada | Ada |
-| Re-entry code saat keluar app | Tidak ada — harus divalidasi server | Ada |
+| Halaman ujian | WebView dalam app | Chrome |
+| Form & login Google | Lewat tombol ke Chrome Custom Tab | Otomatis, seluruh app di Chrome |
+| `FLAG_SECURE` anti screenshot | Aktif | Tidak aktif |
+| Kunci JS (`Android.setExamMode`) | Ada | Tidak ada |
+| Re-entry code | Ada | Tidak ada — harus divalidasi server |
+| Perlu `assetlinks.json` | Tidak | Ya (kalau mau tanpa address bar) |
 
 Ganti mode = ubah satu baris `LAUNCH_MODE` lalu build ulang.
 
@@ -85,10 +102,17 @@ Kalau `assetlinks.json` belum terpasang, TWA otomatis turun jadi Custom Tab (mas
 
 > Sebelum ujian: `LAUNCH_MODE=twa` belum pernah diuji di HP siswa. Kalau bermasalah, kembali ke `webview` dan build ulang — kode mode lama tetap utuh di `MainActivity.kt`.
 
+### Kalau Form memang tidak boleh minta login
+
+Cara paling murah (tanpa build APK, tanpa Chrome): buka Google Form > **Settings** > tab **Responses** → matikan **"Limit to 1 response"** dan pilih **"Collect email addresses" = Do not collect**. Setelah itu Form terbuka di iframe dalam app tanpa login sama sekali, dan semua kunci ujian tetap aktif.
+
 ## Troubleshooting
 
 | Gejala | Penyebab | Fix |
 |---|---|---|
+| Tombol BUKA SOAL DI CHROME tidak bereaksi | APK lama (tanpa `Android.openForm`) atau Chrome tidak terpasang | Install APK ≥ 1.7; pastikan Chrome ada di HP |
+| Siswa kembali dari Chrome lalu langsung minta kode admin | `escape_pending` ter-set padahal siswa sengaja ke Chrome | Pastikan `formTab` di-set sebelum Custom Tab dibuka (APK ≥ 1.7) |
+| Form di iframe minta login terus | WebView tidak punya sesi Google | Pakai tombol BUKA SOAL DI CHROME, atau matikan syarat login di Form |
 | Mode TWA muncul address bar | `assetlinks.json` belum ada/salah | Ikuti bagian 6 |
 | Mode TWA dan siswa keluar app tidak minta kode | Re-entry code masih di app | Validasi gap `sessions.last_seen` di server |
 | Screenshot bisa diambil di mode TWA | `FLAG_SECURE` tidak berlaku untuk Chrome | Pindahkan deteksi ke server, atau pakai `webview` |

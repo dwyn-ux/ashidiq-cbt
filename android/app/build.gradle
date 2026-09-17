@@ -6,14 +6,16 @@ compileSdk = 36
       applicationId = "com.ashidiq.test"
       minSdk = 26
       targetSdk = 36
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
         buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
         buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
-        // "twa" = halaman ujian dibuka oleh Chrome (Trusted Web Activity) → ikut profil & login Google Chrome,
-        //         sehingga Google Form tidak minta login/2FA. "webview" = mode lama (lockdown penuh:
-        //         FLAG_SECURE + bridge JS kunci ujian + re-entry code), tapi login Google diblokir Google.
-        buildConfigField("String", "LAUNCH_MODE", "\"twa\"")
+        // "webview" = HYBRID (dipakai sekarang): halaman ujian di WebView dalam app supaya lockdown penuh
+        //         (FLAG_SECURE, kunci JS, re-entry code) tetap jalan, tapi Google Form-nya dititipkan ke
+        //         Chrome lewat tombol "BUKA SOAL DI CHROME" agar memakai profil & akun Google HP.
+        // "twa"   = seluruh halaman dijalankan Chrome (Trusted Web Activity). Ikut profil Chrome, tapi
+        //         kunci JS dan FLAG_SECURE hilang.
+        buildConfigField("String", "LAUNCH_MODE", "\"webview\"")
     }
     signingConfigs {
         release {
