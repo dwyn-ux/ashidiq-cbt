@@ -1,4 +1,6 @@
 backend/config.php
+CATATAN_PENTING.txt
+migrasi_*.sql.bak
 android/build/
 android/app/build/
 android/.gradle/

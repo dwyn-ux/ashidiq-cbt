@@ -70,6 +70,11 @@
           <input type="password" id="password" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Masukkan Password">
         </div>
         <div id="login-error" class="hidden bg-red-100 text-red-600 p-3 rounded-xl text-sm font-bold text-center"></div>
+        <div id="reentry-box" class="hidden bg-amber-50 border border-amber-200 p-3 rounded-xl">
+          <p class="text-xs font-black text-amber-700 mb-2"><i class="fas fa-shield-halved mr-1"></i> KELUAR APP SAAT UJIAN TERDETEKSI</p>
+          <p class="text-[11px] text-amber-600 mb-2">Sesi ujianmu masih berjalan. Minta <b>KODE ADMIN</b> ke pengawas untuk melanjutkan ujian.</p>
+          <input type="text" id="reentry-code" placeholder="KODE ADMIN" class="w-full px-4 py-3 border-2 border-amber-300 rounded-xl text-center uppercase font-black tracking-widest outline-none focus:border-amber-500">
+        </div>
         <button id="btn-login" onclick="prosesLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg transition-all tracking-wider">MASUK SISTEM</button>
       </div>
     </div>
@@ -481,6 +486,25 @@
           <div><h2 class="text-2xl font-black italic tracking-tighter">DAFTAR UJIAN AKTIF</h2></div>
           <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
         </div>
+        <div id="google-gate" class="bg-amber-50 border-x border-b border-amber-200 px-6 py-4">
+          <div id="google-gate-pending">
+            <p class="font-black text-amber-700 text-sm mb-1">LANGKAH 1 — LOGIN GMAIL DULU (WAJIB)</p>
+            <p class="text-xs text-amber-600 mb-3">Klik tombol di bawah, login akun Google sampai muncul halaman <b>My Account</b> (foto/inisial akun), lalu kembali ke aplikasi dengan tombol <b>Back HP</b>. Tanpa ini Form minta login + 2FA di tengah ujian.</p>
+            <div class="flex gap-2 mb-3">
+              <button onclick="bukaLoginGoogle()" class="bg-red-600 hover:bg-red-700 text-white font-black px-5 py-3 rounded-xl text-xs transition">BUKA LOGIN GOOGLE</button>
+            </div>
+            <label class="flex items-start gap-2 text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" id="cek-google" onchange="toggleGoogle(this.checked)" class="w-5 h-5 mt-0.5"> Saya sudah login Gmail — buka kunci token & MULAI</label>
+            <p id="gate-hint" class="text-[11px] font-bold text-red-500 mt-2 hidden"></p>
+          </div>
+          <div id="google-gate-done" style="display:none" class="flex items-start gap-3">
+            <i class="fas fa-check-circle text-green-600 text-2xl mt-0.5"></i>
+            <div>
+              <p class="font-black text-green-700 text-sm">✅ LOGIN GOOGLE BERHASIL</p>
+              <p class="text-xs text-green-600">Akun Gmail siap dipakai mengerjakan. Silakan isi token ujian di bawah.</p>
+              <button onclick="resetGoogleGate()" class="mt-1 text-[11px] font-bold text-slate-400 underline hover:text-slate-600 transition">Login ulang / ganti akun</button>
+            </div>
+          </div>
+        </div>
         <div id="list-mapel" class="bg-white p-8 rounded-b-3xl shadow-2xl border-x border-b border-slate-200"><p class="text-center py-10 text-slate-400 font-medium">Memuat...</p></div>
       </div>
       
@@ -491,19 +515,14 @@
               <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
               <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
           </div>
-          <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
-             <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
+          <div class="flex items-center gap-2">
+            <button onclick="mintaPintu()" title="Pintu darurat: minta kode ke proktor bila terkendala login Gmail/2FA" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-2 rounded-xl font-black text-xs border border-purple-200 transition"><i class="fas fa-life-ring mr-1"></i> BANTUAN</button>
+            <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
+               <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
+            </div>
           </div>
         </div>
 
-        <div id="auth-banner" style="display:none" class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-2">
-          <p class="font-black text-amber-700 text-sm mb-1">🔓 MODE PERSIAPAN — kunci belum aktif</p>
-          <p class="text-xs text-amber-600 mb-3">Login Gmail & verifikasi 2 langkah dulu (boleh buka SMS/aplikasi lain). Timer tetap jalan. Setelah soal terbuka tanpa diminta login, klik KUNCI UJIAN.</p>
-          <div class="flex gap-2">
-            <button onclick="kunciUjian()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl text-sm transition"><i class="fas fa-lock mr-1"></i> SOAL TERBUKA — KUNCI UJIAN</button>
-            <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batal</button>
-          </div>
-        </div>
         <div id="pintu-banner" style="display:none" class="bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 mb-2">
           <p class="font-black text-purple-700 text-sm mb-1">🚪 PINTU DARURAT TERBUKA (<span id="pintu-sisa">120</span>d) — tombol Back HP aktif</p>
           <div class="flex gap-2 mt-2">
@@ -722,9 +741,20 @@
             document.getElementById('siswa-nama').innerText = res.nama; 
             document.getElementById('siswa-kelas').innerText = res.kelas; 
             document.getElementById('avatar-initial').innerText = res.nama.charAt(0).toUpperCase(); 
-            switchView('view-siswa'); 
-            loadMapelSiswa(res.kelas); 
-            startCheckingStatus(); 
+            switchView('view-siswa');
+            try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
+            renderGoogleGate();
+            // ✅ Re-entry lock: app keluar saat ujian → wajib kode admin via mulaiUjian
+            try {
+              let reentry = sessionStorage.getItem('cbt_reentry') === '1';
+              if (window.Android && window.Android.shouldRequireReentryCode && window.Android.shouldRequireReentryCode()) {
+                reentry = true; sessionStorage.setItem('cbt_reentry', '1');
+                if (window.Android.clearReentryFlag) window.Android.clearReentryFlag();
+              }
+              if (reentry) { document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden'); document.getElementById('siswa-tahap-ujian').classList.add('hidden'); }
+            } catch(e) {}
+            loadMapelSiswa(res.kelas);
+            startCheckingStatus();
             let savedMapel = sessionStorage.getItem('cbt_mapel_aktif');
             if(savedMapel) { 
                 mapelAktif = savedMapel; 
@@ -736,8 +766,7 @@
                 document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal');
                 jalankanTimer();
                 startDeteksiSubmit(); // ✅ Restore deteksi submit
-                if(sessionStorage.getItem('cbt_mode_persiapan') === '1') masukModePersiapan();
-                else paksaFullscreen();
+                paksaFullscreen();
             }
         }
     }
@@ -752,16 +781,29 @@
     function loadChecklist() { for(let i=1; i<=4; i++) { if(localStorage.getItem('chk-'+i) === 'true') document.getElementById('chk-'+i).checked = true; } }
     function saveChecklist() { for(let i=1; i<=4; i++) { localStorage.setItem('chk-'+i, document.getElementById('chk-'+i).checked); } }
 
+    function tampilkanInputKode(on) {
+      const b = document.getElementById('reentry-box');
+      if(b) b.classList.toggle('hidden', !on);
+    }
     async function prosesLogin() {
       const u = document.getElementById('username').value;
       const p = document.getElementById('password').value;
       if(!u || !p) return alert("Isi data form login!");
+      let kodeReentry = '';
+      if(sessionStorage.getItem('cbt_reentry') === '1') {
+        tampilkanInputKode(true);
+        kodeReentry = (document.getElementById('reentry-code').value || '').trim().toUpperCase();
+        if(!kodeReentry) { alert("Sesi ujian masih berjalan. Isi KODE ADMIN dari pengawas dulu!"); return; }
+      }
       const btn = document.getElementById('btn-login'); 
       btn.innerText = "LOADING..."; btn.disabled = true;
-      const res = await callAPI({ action: 'login', username: u, password: p, role: currentRole });
+      const res = await callAPI({ action: 'login', username: u, password: p, role: currentRole, reentryCode: kodeReentry });
       btn.innerText = "MASUK SISTEM"; btn.disabled = false;
-      if(res.sukses) { sessionStorage.setItem('cbt_session', JSON.stringify(res)); renderSession(res); }
-      else { document.getElementById('login-error').innerText = res.pesan; document.getElementById('login-error').classList.remove('hidden'); }
+      if(res.sukses) { sessionStorage.removeItem('cbt_reentry'); tampilkanInputKode(false); sessionStorage.setItem('cbt_session', JSON.stringify(res)); renderSession(res); }
+      else {
+        document.getElementById('login-error').innerText = res.pesan; document.getElementById('login-error').classList.remove('hidden');
+        if(res.kode === 'REENTRY_REQUIRED') { sessionStorage.setItem('cbt_reentry', '1'); tampilkanInputKode(true); }
+      }
     }
 
     async function logout() {
@@ -1278,11 +1320,61 @@
         }, 20000);
     }
 
+    let googleSiap = false;
+    try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
+    let googleLoginDibuka = false;
+    try { googleLoginDibuka = sessionStorage.getItem('cbt_google_dibuka') === '1'; } catch(e) {}
+    // ✅ APK WebView: navigasi same-window (popup sering blank); browser: popup biasa
+    const IS_APK_WEBVIEW = location.protocol === 'file:' || /;\s*wv\)/i.test(navigator.userAgent);
+    const GOOGLE_LOGIN_URL = 'https://myaccount.google.com/'; // halaman My Account = tanda login sukses
+    function setGateHint(msg) {
+      const h = document.getElementById('gate-hint');
+      if (h) { h.innerText = msg || ''; if (msg) h.classList.remove('hidden'); else h.classList.add('hidden'); }
+    }
+    function renderGoogleGate() {
+      const gate = document.getElementById('google-gate');
+      const p = document.getElementById('google-gate-pending');
+      const d = document.getElementById('google-gate-done');
+      const cg = document.getElementById('cek-google');
+      if (p) p.style.display = googleSiap ? 'none' : '';
+      if (d) d.style.display = googleSiap ? 'flex' : 'none';
+      if (cg && !cg.disabled) cg.checked = googleSiap;
+      document.querySelectorAll('#list-mapel input, #list-mapel button').forEach(el => { el.disabled = !googleSiap; });
+      if (gate) {
+        gate.classList.toggle('bg-amber-50', !googleSiap); gate.classList.toggle('border-amber-200', !googleSiap);
+        gate.classList.toggle('bg-green-50', googleSiap); gate.classList.toggle('border-green-200', googleSiap);
+      }
+    }
+    function bukaLoginGoogle() {
+      googleLoginDibuka = true;
+      try { sessionStorage.setItem('cbt_google_dibuka', '1'); } catch(e) {}
+      setGateHint('');
+      if (IS_APK_WEBVIEW) { window.location.href = GOOGLE_LOGIN_URL; return; }
+      var w = null;
+      try { w = window.open(GOOGLE_LOGIN_URL, '_blank', 'noopener'); } catch(e) { w = null; }
+      if(!w) window.location.href = GOOGLE_LOGIN_URL;
+    }
+    function toggleGoogle(v) {
+      if (v && !googleLoginDibuka) {
+        const cg = document.getElementById('cek-google');
+        if (cg) cg.checked = false;
+        setGateHint('Klik "BUKA LOGIN GOOGLE" dulu, login sampai muncul halaman My Account, baru centang di sini.');
+        return;
+      }
+      googleSiap = !!v;
+      try { sessionStorage.setItem('cbt_google_siap', googleSiap ? '1' : '0'); } catch(e) {}
+      renderGoogleGate();
+    }
+    function resetGoogleGate() {
+      googleSiap = false;
+      try { sessionStorage.setItem('cbt_google_siap', '0'); } catch(e) {}
+      renderGoogleGate();
+    }
     async function loadMapelSiswa(k) {
-      const res = await callAPI({ action: 'getMapel', kelas: k }); 
+      const res = await callAPI({ action: 'getMapel', kelas: k });
       let html = '';
-      if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; } 
-      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); }
+      if(!res || res.length===0) { html = '<div class="text-center py-10"><p class="text-slate-400 font-bold uppercase text-xs">Belum ada ujian yang dibuka saat ini.</p></div>'; }
+      else { res.forEach(m => { html += `<div class="border-b border-slate-100 py-6 flex justify-between items-center px-2"><div><h4 class="font-black text-xl text-slate-800 uppercase italic">${esc(m.mapel)}</h4><p class="text-[10px] font-bold text-slate-400">ID: ${esc(m.idUjian)} | Waktu: ${esc(m.durasi)} Menit</p></div><div class="flex gap-2"><input type="password" id="tk-${esc(m.idUjian)}" placeholder="TOKEN" ${googleSiap ? '' : 'disabled'} class="border-2 p-3 rounded-2xl w-24 text-center uppercase font-black focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"><button onclick="mulaiUjian('${jsq(m.idUjian)}')" ${googleSiap ? '' : 'disabled'} class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl hover:bg-blue-700 uppercase text-xs disabled:bg-slate-300">MULAI</button></div></div><p id="err-${esc(m.idUjian)}" class="text-[10px] text-red-500 font-bold hidden px-2"></p>`; }); html += `<p class="text-center text-[11px] font-bold text-slate-400 mt-4">Token & tombol MULAI terbuka setelah centang login Gmail di atas.</p>`; }
       document.getElementById('list-mapel').innerHTML = html;
     }
 
@@ -1312,30 +1404,26 @@
           document.getElementById('iframe-soal').src = res.link;
           jalankanTimer();
           startDeteksiSubmit(); // ✅ Mulai deteksi submit form
-          masukModePersiapan();
-      } else { err.innerText = "* " + res.pesan; err.classList.remove('hidden'); }
+          paksaFullscreen();
+      } else {
+        err.innerText = "* " + res.pesan; err.classList.remove('hidden');
+        // Kalau ada flag keluar-app saat ujian, coba clear bila sesi lama sudah tidak aktif
+        try {
+          if (sessionStorage.getItem('cbt_reentry') === '1') {
+            const c = await callAPI({ action: 'cekSesiAktif', idUjian: id });
+            if (c && c.aktif === false) { sessionStorage.removeItem('cbt_reentry'); tampilkanInputKode(false); }
+          }
+        } catch(e) {}
+      }
     }
 
-    let modePersiapan = false;
     let pintuDarurat = false;
     let pintuTimer = null;
-    function masukModePersiapan() {
-      modePersiapan = true;
-      sessionStorage.setItem('cbt_mode_persiapan', '1');
-      document.getElementById('auth-banner').style.display = 'block';
-    }
-    function kunciUjian() {
-      modePersiapan = false;
-      sessionStorage.removeItem('cbt_mode_persiapan');
-      document.getElementById('auth-banner').style.display = 'none';
-      paksaFullscreen();
-    }
     async function batalUjian() {
-      if(!confirm('Batalkan sesi persiapan dan kembali ke daftar ujian?\n\nTimer yang sudah jalan tidak kembali.')) return;
+      if(!confirm('Batalkan sesi ini dan kembali ke daftar ujian?\n\nTimer yang sudah jalan tidak kembali.')) return;
       try {
         if(sessionUser && idUjianAktif) await callAPI({ action: 'batalUjian', idUjian: idUjianAktif });
       } catch(e) {}
-      modePersiapan = false;
       tutupPintu();
       lepasKunciAPK();
       try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
@@ -1344,27 +1432,25 @@
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
       sessionStorage.removeItem('cbt_link_soal');
-      sessionStorage.removeItem('cbt_mode_persiapan');
       mapelAktif = null; idUjianAktif = null;
-      document.getElementById('auth-banner').style.display = 'none';
       document.getElementById('siswa-tahap-ujian').classList.add('hidden');
       document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
       if(sessionUser) loadMapelSiswa(sessionUser.kelas);
+    }
+    async function mintaPintu() {
+      if(pintuDarurat) { kunciLagi(); return; }
+      const kode = prompt('PINTU DARURAT — minta kode ke proktor (kode unlock aktif):');
+      if(!kode) return;
+      const res = await callAPI({ action: 'validateUnlock', code: kode.trim().toUpperCase() });
+      if(res.sukses) bukaPintu();
+      else alert('Kode salah atau kadaluarsa.');
     }
     let ketukMapel = [];
     async function ketukJudul() {
       const now = Date.now();
       ketukMapel = ketukMapel.filter(t => now - t < 3000);
       ketukMapel.push(now);
-      if(ketukMapel.length >= 5) {
-        ketukMapel = [];
-        if(pintuDarurat) { kunciLagi(); return; }
-        const kode = prompt('PINTU DARURAT — minta kode ke proktor (kode unlock aktif):');
-        if(!kode) return;
-        const res = await callAPI({ action: 'validateUnlock', code: kode.trim().toUpperCase() });
-        if(res.sukses) bukaPintu();
-        else alert('❌ Kode salah atau kadaluarsa.');
-      }
+      if(ketukMapel.length >= 5) { ketukMapel = []; mintaPintu(); }
     }
     function bukaPintu() {
       pintuDarurat = true;
@@ -1390,7 +1476,7 @@
     }
     function kunciLagi() {
       tutupPintu();
-      if(!modePersiapan) paksaFullscreen();
+      paksaFullscreen();
     }
 
     // =============================================
@@ -1466,16 +1552,14 @@
       clearInterval(timerInterval);
       if(deteksiSubmitInterval) clearInterval(deteksiSubmitInterval); // ✅ Clear polling interval
       window.removeEventListener('message', onFormMessage);
-      modePersiapan = false;
       tutupPintu();
-      document.getElementById('auth-banner').style.display = 'none';
-      sessionStorage.removeItem('cbt_mode_persiapan');
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
       sessionStorage.removeItem('cbt_link_soal');
       sessionStorage.removeItem('cbt_total_violations');
       sessionStorage.removeItem('cbt_exam_locked');
+      sessionStorage.removeItem('cbt_reentry');
 
       // Keluar fullscreen + lepas kunci APK
       try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
@@ -1679,7 +1763,7 @@
 
     function recordViolation() {
       const ujianSection = document.getElementById('siswa-tahap-ujian');
-      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || modePersiapan || pintuDarurat) return;
+      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || pintuDarurat) return;
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
@@ -1713,6 +1797,15 @@
     });
 
     function paksaFullscreen() {
+      // ✅ Re-entry: app sempat keluar saat ujian → paksa kembali ke verifikasi (wajib kode admin)
+      try {
+        if (window.Android && window.Android.shouldRequireReentryCode && window.Android.shouldRequireReentryCode()) {
+          sessionStorage.setItem('cbt_reentry', '1');
+          if (window.Android.clearReentryFlag) window.Android.clearReentryFlag();
+          const uv = document.getElementById('siswa-tahap-verifikasi'), uu = document.getElementById('siswa-tahap-ujian');
+          if (uv) uv.classList.remove('hidden'); if (uu) uu.classList.add('hidden');
+        }
+      } catch(e) {}
       try { if(window.Android) window.Android.setExamMode(true); } catch(e) {}
       const e = document.documentElement;
       if(e.requestFullscreen)            e.requestFullscreen().catch(()=>{});
@@ -1726,7 +1819,7 @@
     // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
-      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !modePersiapan && !pintuDarurat) {
+      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !pintuDarurat) {
         // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
         setTimeout(() => {
           const active = document.activeElement;
@@ -1754,11 +1847,6 @@
 
     function restoreSecurityState() {
       loadViolationLimit();
-      if(sessionStorage.getItem('cbt_mode_persiapan') === '1') {
-        modePersiapan = true;
-        const ab = document.getElementById('auth-banner');
-        if(ab) ab.style.display = 'block';
-      }
       const locked   = sessionStorage.getItem('cbt_exam_locked');
       const savedVio = sessionStorage.getItem('cbt_total_violations');
       if(locked === 'true') {

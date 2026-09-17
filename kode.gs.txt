@@ -1,0 +1,1324 @@
+// ==========================================
+// BACKEND API ENGINE (CODE.GS) - UPDATED
+// Tambahan: Rekap Nilai per Kelas + Link Nilai di Admin
+// ==========================================
+
+// ✅ Menu akan muncul otomatis saat buka spreadsheet
+function onOpen() {
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('🚀 CBT ASHIDIQ')
+        .addItem('Generate Password Masal', 'generatePasswordsMasal')
+        .addItem('Generate Token Ujian Masal', 'generateTokensMasal')
+        .addSeparator()
+        .addItem('Debug Waktu', 'debugWaktu')
+        .addToUi();
+  } catch(e) {
+    console.warn("Menu creation error: " + e.toString());
+  }
+}
+
+// Alias untuk backward compatibility
+function menuGenerateForm() {
+  SpreadsheetApp.getUi().alert('Gunakan dashboard web CBT untuk generate form.');
+}
+
+var SESSION_TTL = 7200;
+
+function issueToken(payload) {
+  var token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put('TOK_' + token, JSON.stringify(payload), SESSION_TTL);
+  return token;
+}
+function getSession(token) {
+  if (!token) return null;
+  try {
+    var raw = CacheService.getScriptCache().get('TOK_' + token);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function killToken(token) {
+  try { CacheService.getScriptCache().remove('TOK_' + token); } catch (e) {}
+}
+
+// ponytail: rate-limit in-memory via CacheService (bukan DB). Upgrade: tabel login_attempts + blokir IP permanen.
+function loginLocked_(key) {
+  try { return !!CacheService.getScriptCache().get('LOCK_' + key); } catch (e) { return false; }
+}
+function loginFail_(key) {
+  try {
+    var c = CacheService.getScriptCache();
+    var n = parseInt(c.get('FAIL_' + key) || '0', 10) + 1;
+    c.put('FAIL_' + key, String(n), 300);
+    if (n >= 5) c.put('LOCK_' + key, '1', 300);
+    return Math.max(0, 5 - n);
+  } catch (e) { return 0; }
+}
+function loginOk_(key) {
+  try { var c = CacheService.getScriptCache(); c.remove('FAIL_' + key); c.remove('LOCK_' + key); } catch (e) {}
+}
+
+function doGet(e) { return handleRequest(e, false); }
+function doPost(e) { return handleRequest(e, true); }
+
+function handleRequest(e, isPost) {
+  try {
+    var req = e.parameter || {};
+    var viaPost = !!isPost;
+    if (e.postData && e.postData.contents) {
+      viaPost = true;
+      var body = JSON.parse(e.postData.contents);
+      for (var key in body) { req[key] = body[key]; }
+    }
+
+    var action = req.action;
+    var res = {};
+
+    var MUST_POST = ['login', 'mulaiUjian', 'selesaiUjian', 'tambahData', 'updateSetting', 'forceLogout', 'uploadBankSoal', 'editMapel', 'clearLog', 'hapusTabNilai', 'heartbeat', 'validateUnlock', 'logout', 'generateForm', 'generateAllPasswords', 'generateAllTokens', 'setUnlockInterval', 'setViolationLimit'];
+    if (MUST_POST.indexOf(action) !== -1 && !viaPost) {
+      return ContentService.createTextOutput(JSON.stringify({ sukses: false, pesan: "Gunakan POST.", kode: "METHOD_NOT_ALLOWED" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var ADMIN_ONLY = ['getDashboard', 'getSantriData', 'getAllMapel', 'generateForm', 'generateAllPasswords', 'generateAllTokens', 'tambahData', 'updateSetting', 'forceLogout', 'editMapel', 'getDokumenData', 'clearLog', 'getAllTabNilai', 'hapusTabNilai', 'debugMapel', 'debugNilai', 'uploadBankSoal', 'getUnlockCode', 'setUnlockInterval', 'setViolationLimit'];
+    var sess = getSession(req.token);
+    if (action !== 'login' && !sess) {
+      return ContentService.createTextOutput(JSON.stringify({ sukses: false, pesan: "Sesi habis, login ulang.", kode: "UNAUTHORIZED" })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (ADMIN_ONLY.indexOf(action) !== -1 && !(sess && (sess.role === 'admin' || sess.role === 'proktor'))) {
+      return ContentService.createTextOutput(JSON.stringify({ sukses: false, pesan: "Akses ditolak.", kode: "FORBIDDEN" })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (action === 'logout') { killToken(req.token); return ContentService.createTextOutput(JSON.stringify({ sukses: true })).setMimeType(ContentService.MimeType.JSON); }
+
+    if (action === 'login') res = login(req.username, req.password, req.role);
+    else if (action === 'getDashboard') res = getDashboardData();
+    else if (action === 'getSantriData') res = getSantriData();
+    else if (action === 'getAllMapel') res = getAllMapel();
+    else if (action === 'generateForm') res = generateFormDariBankSoal(req.idUjian, req.mode);
+    else if (action === 'generateAllPasswords') res = generatePasswordsMasal();
+    else if (action === 'generateAllTokens') res = generateTokensMasal();
+    else if (action === 'getMapel') res = getMapelSiswa(sess.kelas || req.kelas);
+    else if (action === 'mulaiUjian') res = verifikasiTokenDanMulai(sess.nis || req.nis, sess.nama || req.nama, sess.kelas || req.kelas, req.idUjian, req.inputToken);
+    else if (action === 'selesaiUjian') res = akhiriUjian(sess.nis || req.nis, sess.nama || req.nama, sess.kelas || req.kelas, req.mapel);
+    else if (action === 'tambahData') res = tambahDataKeSheet(req.sheet, req.dataArray);
+    else if (action === 'updateSetting') res = updateSettingSekolah(req.namaSekolah, req.kepala, req.nbm, req.uProktor, req.pProktor);
+    else if (action === 'forceLogout') res = forceLogout(req.nis, req.mapel);
+    else if (action === 'cekStatusSiswa') res = cekStatusSiswa(sess.nis || req.nis, sess);
+    else if (action === 'heartbeat') res = heartbeat(sess.nis, sess);
+    else if (action === 'getUnlockCode') res = getUnlockCode();
+    else if (action === 'setUnlockInterval') res = setUnlockInterval(req.interval);
+    else if (action === 'getViolationLimit') res = getViolationLimit();
+    else if (action === 'setViolationLimit') res = setViolationLimit(req.limit);
+    else if (action === 'validateUnlock') res = validateUnlock(req.code);
+    else if (action === 'uploadBankSoal') res = uploadDanGenerateForm(req.idUjian, req.dataSoal, req.mode);
+    else if (action === 'editMapel') res = editMapel(req.id, req.tgl, req.mulai, req.selesai, req.status, req.durasi, req.mapel, req.kelas, req.examToken);
+    else if (action === 'getDokumenData') res = getDokumenData();
+    else if (action === 'clearLog') res = clearLog();
+    else if (action === 'getAllTabNilai') res = getAllTabNilai();
+    else if (action === 'hapusTabNilai') res = hapusTabNilai(req.sheetId);
+    else if (action === 'debugMapel')    res = debugMapelAPI(sess.kelas || req.kelas);
+    else if (action === 'debugNilai')    res = debugNilai();
+    else if (action === 'cekJawabanSiswa') res = cekJawabanSiswa(sess.nama || req.nama, sess.kelas || req.kelas, req.idUjian, sess.nis || req.nis);
+    else res = { sukses: false, pesan: "Aksi tidak dikenali." };
+    
+    return ContentService.createTextOutput(JSON.stringify(res)).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ sukses: false, pesan: "Error Server: " + error.message })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// --- FUNGSI PARSER WAKTU ---
+
+/**
+ * Ekstrak string "HH:mm" dari nilai kolom TIME Google Sheets.
+ * Sheets menyimpan waktu sebagai desimal hari (0.0 = 00:00, 0.5 = 12:00, dst).
+ * Pakai aritmatika integer langsung — tidak lewat Date object agar tidak kena
+ * floating-point / timezone rounding error.
+ */
+function jamDariSheets(val) {
+  if(!val && val !== 0) return "00:00";
+
+  // Date object dari Apps Script — kolom TIME Sheets
+  // Apps Script timezone mengikuti timezone spreadsheet (WIB/GMT+7)
+  // getHours() mengembalikan jam dalam timezone spreadsheet
+  if(val instanceof Date) {
+    var h = val.getHours();
+    var m = val.getMinutes();
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  var s = val.toString().trim();
+
+  // Format "HH:mm" atau "HH:mm:ss" langsung
+  if(/^\d{1,2}:\d{2}/.test(s)) return s.substring(0, 5);
+
+  // Format ISO "...T07:30:00.000Z" — ambil bagian waktu lalu konversi manual ke WIB (+7)
+  if(s.includes("T")) {
+    var isoMatch = s.match(/T(\d{2}):(\d{2})/);
+    if(isoMatch) {
+      var utcH = parseInt(isoMatch[1]);
+      var utcM = parseInt(isoMatch[2]);
+      // Konversi UTC ke WIB
+      var wibMinutes = utcH * 60 + utcM + 420; // +7 jam = +420 menit
+      wibMinutes = wibMinutes % (24 * 60);
+      if(wibMinutes < 0) wibMinutes += 24 * 60;
+      var wibH = Math.floor(wibMinutes / 60);
+      var wibM = wibMinutes % 60;
+      return (wibH < 10 ? "0" : "") + wibH + ":" + (wibM < 10 ? "0" : "") + wibM;
+    }
+  }
+
+  // Nilai numerik desimal hari (fallback)
+  var num = parseFloat(s);
+  if(!isNaN(num)) {
+    var totalMenit = Math.round(num * 24 * 60);
+    var jam  = Math.floor(totalMenit / 60) % 24;
+    var mnt  = totalMenit % 60;
+    return (jam < 10 ? "0" : "") + jam + ":" + (mnt < 10 ? "0" : "") + mnt;
+  }
+
+  return "00:00";
+}
+
+/**
+ * Ekstrak string "yyyy-MM-dd" dari nilai kolom DATE Google Sheets.
+ */
+function tglDariSheets(val) {
+  if(!val) return "";
+  if(val instanceof Date) {
+    return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
+  }
+  var s = val.toString().trim();
+  if(s.includes("T")) return s.split("T")[0];
+  // Format "yyyy-MM-dd" atau "dd/MM/yyyy"
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  return s.substring(0, 10);
+}
+
+function formatTglJam(tglVal, jamVal) {
+  return {
+    tgl: tglDariSheets(tglVal),
+    jam: jamDariSheets(jamVal)
+  };
+}
+
+function buildWaktuObj(tglVal, jamVal) {
+  var tgl = tglDariSheets(tglVal);
+  var jam = jamDariSheets(jamVal);
+  if(!tgl || tgl === "") return new Date(0);
+  var d = new Date(tgl + "T" + jam + ":00+07:00");
+  return isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+// ==========================================
+// ✅ SISTEM REKAP NILAI - SIMPLIFIED
+// 1 Spreadsheet Master untuk semua jawaban
+// ==========================================
+
+/**
+ * Ambil atau buat Spreadsheet Master Nilai (1 untuk semua kelas)
+ * ID disimpan di SETTING C8
+ */
+function getOrCreateMasterNilai() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var shSet = ss.getSheetByName('SETTING');
+  var idNilai = shSet.getRange('C8').getValue();
+  
+  if(!idNilai || idNilai.toString().trim() === "") {
+    var newSS = SpreadsheetApp.create("CBT_MASTER_NILAI_ASHIDIQ");
+    idNilai = newSS.getId();
+    shSet.getRange('C8').setValue(idNilai);
+    
+    // Hapus sheet default "Sheet1"
+    var sheets = newSS.getSheets();
+    if(sheets.length === 1 && sheets[0].getName() === 'Sheet1') {
+      sheets[0].setName('INFO');
+      sheets[0].getRange('A1').setValue('Spreadsheet ini berisi semua jawaban ujian CBT.');
+      sheets[0].getRange('A2').setValue('Setiap tab = 1 mapel/ujian.');
+    }
+  }
+  return idNilai.toString().trim();
+}
+
+/**
+ * Buat tab baru di spreadsheet master untuk mapel tertentu.
+ * Kalau tab dengan nama yang sama sudah ada (generate ulang),
+ * unlink form lama dulu lalu hapus tab lama supaya tab baru bisa dibuat fresh.
+ */
+function getOrCreateTabNilai(idUjian, namaMapel) {
+  var masterId = getOrCreateMasterNilai();
+  var ssMaster = SpreadsheetApp.openById(masterId);
+  var tabName  = idUjian.toString().trim().toUpperCase() + " - " + namaMapel;
+
+  // Kalau tab dengan nama ini sudah ada → hapus dulu supaya form baru bisa link ke tab baru
+  var existingSheet = ssMaster.getSheetByName(tabName);
+  if(existingSheet) {
+    // Unlink form lama yang mungkin masih terhubung ke tab ini
+    try {
+      var formUrl = existingSheet.getFormUrl ? existingSheet.getFormUrl() : null;
+      if(formUrl) {
+        try { FormApp.openByUrl(formUrl).removeDestination(); } catch(e) { /* form mungkin sudah dihapus */ }
+        Utilities.sleep(800);
+      }
+    } catch(e) { /* tidak kritis */ }
+
+    // Hapus tab lama kalau masih ada sheet lain (tidak boleh hapus satu-satunya sheet)
+    if(ssMaster.getSheets().length > 1) {
+      try { ssMaster.deleteSheet(existingSheet); Utilities.sleep(500); } catch(e) { /* abaikan */ }
+    } else {
+      // Hanya satu sheet — kosongkan isinya saja
+      existingSheet.clearContents();
+    }
+  }
+
+  // Return info — tab baru akan dibuat otomatis oleh form.setDestination
+  // dan di-rename setelahnya di generateFormDariBankSoal
+  return {
+    spreadsheetId: masterId,
+    sheetName: tabName,
+    isNew: true
+  };
+}
+
+/**
+ * Hapus tab di spreadsheet master berdasarkan Sheet ID.
+ * Otomatis unlink Google Form yang terhubung sebelum menghapus.
+ */
+function hapusTabNilai(sheetId) {
+  try {
+    var masterId = getOrCreateMasterNilai();
+    var ssMaster = SpreadsheetApp.openById(masterId);
+    var sheets = ssMaster.getSheets();
+
+    // Tidak boleh hapus kalau cuma 1 tab
+    if(sheets.length <= 1) {
+      return { sukses: false, pesan: "Tidak bisa menghapus — spreadsheet harus punya minimal 1 tab." };
+    }
+
+    var target = sheets.find(function(s) { return s.getSheetId() === parseInt(sheetId); });
+    if(!target) {
+      return { sukses: false, pesan: "Tab tidak ditemukan (ID: " + sheetId + ")." };
+    }
+
+    var namaTab = target.getName();
+
+    // ✅ Unlink Google Form yang terhubung ke tab ini dulu
+    // Google tidak bisa hapus sheet yang masih linked ke form
+    try {
+      var url = ssMaster.getUrl();
+      // Cek apakah sheet ini punya form terhubung via DriveApp
+      var formUrl = target.getFormUrl ? target.getFormUrl() : null;
+      if(formUrl) {
+        var linkedForm = FormApp.openByUrl(formUrl);
+        linkedForm.removeDestination(); // Putus link form dari spreadsheet
+        Utilities.sleep(1000);
+      }
+    } catch(unlinkErr) {
+      // Kalau gagal unlink via getFormUrl, coba cara lain — langsung hapus paksa
+      console.warn("Unlink form gagal (mungkin form sudah dihapus): " + unlinkErr);
+    }
+
+    // Hapus tabnya
+    ssMaster.deleteSheet(target);
+
+    // Bersihkan URL di MAPEL_AKTIF kolom K kalau ada
+    try {
+      var sM = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF');
+      var dM = sM.getDataRange().getValues();
+      for(var i = 1; i < dM.length; i++) {
+        var urlNilai = dM[i][10] ? dM[i][10].toString() : "";
+        if(urlNilai.indexOf("gid=" + sheetId) !== -1) {
+          sM.getRange(i + 1, 11).clearContent();
+          break;
+        }
+      }
+    } catch(e2) { /* tidak kritis */ }
+
+    return { sukses: true, pesan: "Tab \"" + namaTab + "\" berhasil dihapus." };
+  } catch(e) {
+    // ✅ Kalau masih error "form ditautkan", kembalikan pesan yang actionable
+    var msg = e.toString();
+    if(msg.indexOf("formulir yang ditautkan") !== -1 || msg.indexOf("linked form") !== -1 || msg.indexOf("associated form") !== -1) {
+      return { 
+        sukses: false, 
+        pesan: "Tab ini masih terhubung ke Google Form. Buka Google Form-nya → Settings → Responses → unlink spreadsheet dulu, lalu coba hapus lagi.",
+        linkedForm: true
+      };
+    }
+    return { sukses: false, pesan: "Gagal hapus tab: " + msg };
+  }
+}
+function getAllTabNilai() {
+  try {
+    var masterId = getOrCreateMasterNilai();
+    var ssMaster = SpreadsheetApp.openById(masterId);
+    var sheets = ssMaster.getSheets();
+    var result = [];
+    
+    for(var i = 0; i < sheets.length; i++) {
+      var sheetName = sheets[i].getName();
+      if(sheetName === 'INFO') continue; // Skip tab INFO
+      
+      var sheetId = sheets[i].getSheetId();
+      var url = "https://docs.google.com/spreadsheets/d/" + masterId + "/edit#gid=" + sheetId;
+      
+      result.push({ 
+        mapel: sheetName,
+        url: url,
+        spreadsheetId: masterId,
+        sheetId: sheetId
+      });
+    }
+    
+    return { sukses: true, data: result, masterUrl: "https://docs.google.com/spreadsheets/d/" + masterId + "/edit" };
+  } catch(e) {
+    return { sukses: false, pesan: "Error: " + e.toString() };
+  }
+}
+
+// ==========================================
+// ✅ GENERATE FORM — SIMPLIFIED:
+//    Form response masuk ke 1 spreadsheet master,
+//    setiap mapel = 1 tab dengan nama ID_UJIAN - NAMA_MAPEL
+// ==========================================
+
+function generateFormDariBankSoal(id, mode) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sM = ss.getSheetByName('MAPEL_AKTIF'); 
+    var sS = ss.getSheetByName('BANK_SOAL');
+    var dM = sM.getDataRange().getValues(); 
+    
+    var cleanId = id.toString().trim().toUpperCase();
+    var idx = dM.findIndex(r => r[0] && r[0].toString().trim().toUpperCase() === cleanId);
+    if (idx === -1) return { sukses: false, pesan: "ID Ujian ngga ketemu di tab MAPEL_AKTIF!" };
+    
+    var mapelName = dM[idx][1];
+    
+    // ✅ Mode Quiz untuk auto-grading
+    // setLimitOneResponsePerUser(false) untuk testing, ubah jadi true untuk ujian real
+    var form = FormApp.create('CBT: ' + mapelName).setIsQuiz(true).setLimitOneResponsePerUser(false);
+    
+    // ✅ Buat atau ambil tab di spreadsheet master
+    var tabInfo = getOrCreateTabNilai(cleanId, mapelName);
+    var masterId = tabInfo.spreadsheetId;
+    var tabName = tabInfo.sheetName;
+    
+    var ssMaster = SpreadsheetApp.openById(masterId);
+    
+    // Catat semua sheet ID yang sudah ada sebelum dikaitkan dengan form
+    var oldSheets = ssMaster.getSheets();
+    var oldIds = oldSheets.map(function(s) { return s.getSheetId(); });
+    
+    // Kawinkan Form dengan Spreadsheet Master
+    try { 
+      form.setDestination(FormApp.DestinationType.SPREADSHEET, masterId); 
+      SpreadsheetApp.flush(); 
+      Utilities.sleep(2000);
+      
+      // Cari tab baru yang muncul setelah form dikaitkan → rename jadi tabName
+      var newSheets = ssMaster.getSheets();
+      var newTabId = null;
+      for (var i = 0; i < newSheets.length; i++) {
+         if (oldIds.indexOf(newSheets[i].getSheetId()) === -1) {
+            newSheets[i].setName(tabName);
+            newTabId = newSheets[i].getSheetId(); // ✅ Simpan ID tab baru
+            break;
+         }
+      }
+
+      SpreadsheetApp.flush();
+      Utilities.sleep(500);
+
+      // ✅ Bersihkan tab sampah "Form Responses N" / "Jawaban Formulir N"
+      // yang mungkin tertinggal dari generate sebelumnya
+      // PENTING: Jangan hapus tab yang baru dibuat (newTabId)!
+      var sheetsAfter = ssMaster.getSheets();
+      sheetsAfter.forEach(function(sh) {
+        var shId = sh.getSheetId();
+        if(shId === newTabId) return; // ✅ Jangan hapus tab yang baru dibuat!
+        
+        var nm = sh.getName().trim().toLowerCase();
+        if(/^jawaban formulir/i.test(nm) || /^form responses/i.test(nm)) {
+          // Unlink form jika masih terhubung, lalu hapus
+          try {
+            var fUrl = sh.getFormUrl ? sh.getFormUrl() : null;
+            if(fUrl) { try { FormApp.openByUrl(fUrl).removeDestination(); } catch(e2) {} }
+          } catch(e3) {}
+          try {
+            if(ssMaster.getSheets().length > 1) ssMaster.deleteSheet(sh);
+          } catch(e4) {}
+        }
+      });
+
+    } catch(e) {
+      console.error("Gagal menautkan spreadsheet nilai: " + e.toString());
+    }
+    
+    // AUTO-FILL IDENTITAS
+    var itemNis = form.addTextItem().setTitle('NIS').setRequired(true);
+    var itemNama = form.addTextItem().setTitle('NAMA LENGKAP').setRequired(true);
+    var itemKelas = form.addTextItem().setTitle('KELAS').setRequired(true);
+
+    var tempRes = form.createResponse();
+    tempRes.withItemResponse(itemNis.createResponse('TEMPLATE_NIS'));
+    tempRes.withItemResponse(itemNama.createResponse('TEMPLATE_NAMA'));
+    tempRes.withItemResponse(itemKelas.createResponse('TEMPLATE_KELAS'));
+    var prefilledUrl = tempRes.toPrefilledUrl();
+    
+    form.addPageBreakItem(); 
+    
+    var allSoal = sS.getDataRange().getValues();
+    var soals = allSoal.filter(r => r[0] && r[0].toString().trim().toUpperCase() === cleanId);
+    
+    if(soals.length === 0) return { sukses: false, pesan: "Soal kosong di BANK_SOAL!" };
+
+    // ✅ PRE-VALIDASI: cek pilihan duplikat di setiap soal PG SEBELUM bangun form
+    // supaya error-nya jelas nunjuk soal nomor berapa & pilihan apa yang kembar
+    // CATATAN: perbandingan CASE-SENSITIVE — "ABC" dan "abc" dianggap BERBEDA
+    // (penting untuk soal coding/TIK yang membedakan huruf besar-kecil)
+    var masalahDuplikat = [];
+    soals.forEach(function(s, index) {
+      var jenisCek = s[1] ? s[1].toString().trim().toUpperCase() : "PG";
+      if(jenisCek !== 'PG') return;
+      var opsis = [s[3], s[4], s[5], s[6], s[7]];
+      var seen = {};
+      var hurufOpsi = ['A','B','C','D','E'];
+      for(var c = 0; c < opsis.length; c++) {
+        // ✅ FIX: gunakan case-sensitive — hanya normalisasi spasi berlebih, tidak lowercase
+        var o = opsis[c] ? opsis[c].toString().replace(/\s+/g,' ').trim() : '';
+        if(o === '') continue; // opsi kosong diabaikan (boleh < 5 opsi)
+        if(seen[o] !== undefined) {
+          masalahDuplikat.push("Soal #" + (index+1) + ": pilihan " + hurufOpsi[seen[o]] + " & " + hurufOpsi[c] + " sama-sama \"" + opsis[c].toString().trim() + "\"");
+        } else {
+          seen[o] = c;
+        }
+      }
+    });
+    if(masalahDuplikat.length > 0) {
+      // Hapus form kosong yang terlanjur dibuat supaya tidak jadi sampah
+      try { DriveApp.getFileById(form.getId()).setTrashed(true); } catch(eDel) {}
+      return {
+        sukses: false,
+        pesan: "Ada pilihan jawaban DUPLIKAT, perbaiki dulu di BANK_SOAL:\n\n" + masalahDuplikat.join("\n")
+      };
+    }
+
+    soals.forEach((s, index) => {
+      var jenis     = s[1]  ? s[1].toString().trim().toUpperCase() : "PG"; 
+      var pertanyaan = s[2] ? s[2].toString() : "Soal Kosong"; 
+      var kunci     = s[8]  ? s[8].toString().trim() : "";
+      var poinSkor  = parseInt(s[9]);
+      if(isNaN(poinSkor) || poinSkor < 0) poinSkor = 10;
+
+      // ✅ Kolom ke-11 (index 10) = URL gambar (opsional)
+      // Bisa URL Google Drive (harus share publik) atau URL gambar langsung
+      var urlGambar = s[10] ? s[10].toString().trim() : "";
+
+      // ✅ Sisipkan gambar SEBELUM soal kalau ada URL gambar
+      if(urlGambar) {
+        try {
+          var imgItem = form.addImageItem();
+          // Coba fetch gambar dari URL
+          var imgBlob = UrlFetchApp.fetch(urlGambar).getBlob();
+          imgItem.setImage(imgBlob)
+                 .setTitle("")      // judul kosong supaya rapi
+                 .setHelpText(""); 
+        } catch(imgErr) {
+          // Kalau gambar gagal load, sisipkan teks URL sebagai fallback
+          form.addSectionHeaderItem().setTitle("📎 Lihat gambar: " + urlGambar);
+          console.warn("Gagal load gambar soal " + (index+1) + ": " + imgErr);
+        }
+      }
+
+      if(jenis === 'PG') {
+        var item = form.addMultipleChoiceItem().setTitle((index + 1) + ". " + pertanyaan);
+
+        // Opsi A-E dari kolom CSV (index 3-7)
+        var opsiArr = [
+          s[3] ? s[3].toString() : null,  // A
+          s[4] ? s[4].toString() : null,  // B
+          s[5] ? s[5].toString() : null,  // C
+          s[6] ? s[6].toString() : null,  // D
+          s[7] ? s[7].toString() : null   // E
+        ];
+
+        // Kunci bisa huruf (A/B/C/D/E) atau teks langsung
+        var kunciUpper = kunci.toUpperCase().trim();
+        var kunciByHuruf = ['A','B','C','D','E'].indexOf(kunciUpper);
+
+        var choices = [];
+        opsiArr.forEach(function(opsi, i) {
+          if(!opsi || opsi.trim() === '') return; // skip opsi kosong
+
+          var isBenar = false;
+          if(kunciByHuruf !== -1) {
+            // Kunci huruf (A/B/C/D/E) → tidak case-sensitive
+            isBenar = (i === kunciByHuruf);
+          } else {
+            // Kunci teks langsung → CASE-SENSITIVE (penting untuk soal coding/TIK)
+            // hanya normalisasi spasi berlebih
+            var normOpsi  = opsi.replace(/\s+/g,' ').trim();
+            var normKunci = kunci.replace(/\s+/g,' ').trim();
+            isBenar = (normOpsi === normKunci);
+          }
+          choices.push(item.createChoice(opsi.toString(), isBenar));
+        });
+
+        if(choices.length > 0) item.setChoices(choices);
+        item.setPoints(poinSkor).setRequired(true); 
+      } 
+      else if(jenis === 'ISIAN') { 
+        form.addTextItem().setTitle((index + 1) + ". " + pertanyaan).setPoints(poinSkor).setRequired(true); 
+      } 
+      else if(jenis === 'URAIAN') { 
+        form.addParagraphTextItem().setTitle((index + 1) + ". " + pertanyaan).setPoints(poinSkor).setRequired(true); 
+      }
+
+      if (mode === 'multipage' && index < soals.length - 1) {
+        form.addPageBreakItem();
+      }
+    });
+    
+    // Simpan link form ke MAPEL_AKTIF
+    sM.getRange(idx+1, 6).setValue(prefilledUrl);
+    
+    // ✅ Simpan URL spreadsheet master + direct link ke tab di kolom 11 (K) MAPEL_AKTIF
+    var targetSheet = ssMaster.getSheetByName(tabName);
+    if(!targetSheet) {
+      return { sukses: false, pesan: "Error: Tab \"" + tabName + "\" tidak ditemukan setelah rename!" };
+    }
+    
+    var sheetId = targetSheet.getSheetId();
+    var urlNilaiDirect = "https://docs.google.com/spreadsheets/d/" + masterId + "/edit#gid=" + sheetId;
+    sM.getRange(idx+1, 11).setValue(urlNilaiDirect);
+    
+    // ✅ Verifikasi form benar-benar terhubung ke spreadsheet master
+    var formUrl = form.getPublishedUrl();
+    var formEditUrl = form.getEditUrl();
+    
+    return { 
+      sukses: true, 
+      pesan: "Sukses! Form " + mapelName + " berhasil dibuat.", 
+      urlNilai: urlNilaiDirect,
+      tabName: tabName,
+      masterId: masterId,
+      formUrl: formUrl,
+      formEditUrl: formEditUrl,
+      sheetId: sheetId
+    };
+  } catch(e) { 
+    return { sukses: false, pesan: "Error Generate: " + e.toString() }; 
+  }
+}
+
+function uploadDanGenerateForm(idUjian, arrSoal, mode) {
+  var shSoal = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BANK_SOAL');
+
+  if (!arrSoal || !arrSoal.length) return { sukses: false, pesan: "File kosong." };
+  if (arrSoal.length > 200) return { sukses: false, pesan: "Maksimal 200 soal per upload." };
+
+  // ponytail: sanitasi anti formula-injection CSV (= + - @ tab). Upgrade: whitelist kolom + validasi tipe per kolom.
+  var bersih = arrSoal.map(function(row) {
+    return (row || []).slice(0, 11).map(function(c) {
+      var s = (c == null ? '' : String(c)).slice(0, 2000);
+      return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+    });
+  });
+
+  var d = shSoal.getDataRange().getValues();
+  var cleanId = idUjian.toString().trim().toUpperCase();
+  for(var i = d.length - 1; i > 0; i--) {
+    if(d[i][0] && d[i][0].toString().trim().toUpperCase() === cleanId) {
+      shSoal.deleteRow(i + 1);
+    }
+  }
+
+  for(var j = 0; j < bersih.length; j++) {
+    if(bersih[j] && bersih[j].length > 5 && bersih[j][0] !== "") {
+        shSoal.appendRow(bersih[j]);
+    }
+  }
+
+  return generateFormDariBankSoal(idUjian, mode);
+}
+
+// ==========================================
+// ✅ getAllMapel — DITAMBAH: urlNilai per mapel
+// ==========================================
+
+function getAllMapel() {
+  var d = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var out = [];
+  for(var i=1; i<d.length; i++) {
+    if(d[i][0]) {
+      var fBuka = formatTglJam(d[i][6], d[i][7]);
+      var fTutup = formatTglJam(d[i][6], d[i][8]); 
+      var durasi = d[i][9] ? d[i][9] : 90;
+      // ✅ Kolom ke-11 (index 10) berisi URL spreadsheet nilai kelas untuk mapel ini
+      var urlNilai = d[i][10] ? d[i][10].toString() : "";
+      out.push({
+        id: d[i][0], 
+        mapel: d[i][1], 
+        kelas: d[i][2], 
+        token: d[i][3], 
+        status: d[i][4], 
+        tgl: fBuka.tgl, 
+        mulai: fBuka.jam, 
+        selesai: fTutup.jam, 
+        durasi: durasi,
+        urlNilai: urlNilai  // ✅ Dikirim ke frontend
+      });
+    }
+  }
+  return out;
+}
+
+// --- FUNGSI ADMIN & MAPEL (tidak berubah) ---
+
+function editMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF');
+  var d = sh.getDataRange().getValues();
+  for(var i=1; i<d.length; i++) {
+    if(d[i][0] && d[i][0].toString().trim() === id.toString().trim()) {
+      if(mapel)   sh.getRange(i+1, 2).setValue(mapel);   // Kolom B = nama mapel
+      if(kelas)   sh.getRange(i+1, 3).setValue(kelas);   // Kolom C = kelas target
+      if(token)   sh.getRange(i+1, 4).setValue(token);   // Kolom D = token
+      sh.getRange(i+1, 5).setValue(status);               // Kolom E = status
+      sh.getRange(i+1, 7).setValue(tgl);                  // Kolom G = tanggal
+      sh.getRange(i+1, 8).setValue(mulai);                // Kolom H = jam mulai
+      sh.getRange(i+1, 9).setValue(selesai);              // Kolom I = jam selesai
+      sh.getRange(i+1, 10).setValue(parseInt(durasi)||90);// Kolom J = durasi
+      return {sukses: true, pesan: "Jadwal Mapel (" + id + ") berhasil diupdate!"};
+    }
+  }
+  return {sukses: false, pesan: "ID Ujian tidak ditemukan."};
+}
+
+function getMapelSiswa(kelas) {
+  var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var sekarang = new Date();
+  var mapelTersedia = [];
+  // ✅ Normalisasi: buang semua spasi, uppercase. "11 A" → "11A"
+  var kelasSiswaNorm = kelas.toString().toUpperCase().replace(/\s+/g, '');
+
+  // Helper cocokkan kelas: exact ATAU target tingkat (mis "11" cocok "11A")
+  function kelasCocok(target, siswa) {
+    if(!target) return false;
+    if(siswa === target) return true;
+    // target semua digit (tingkat) → cocok kalau siswa diawali target lalu huruf
+    if(/^[0-9]+$/.test(target) && siswa.indexOf(target) === 0) {
+      var sisa = siswa.substring(target.length);
+      return sisa === '' || /^[A-Z]/.test(sisa);
+    }
+    return false;
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if(!data[i][0]) continue; // skip baris kosong
+
+    var status = data[i][4] ? data[i][4].toString().trim().toUpperCase() : "";
+    if(status !== 'AKTIF') continue;
+
+    // Cek kelas — normalisasi spasi di target juga: "11 A,11 B" → ["11A","11B"]
+    var targetArr = (data[i][2] ? data[i][2].toString().toUpperCase() : "")
+                      .split(',')
+                      .map(function(k) { return k.replace(/\s+/g, ''); });
+    var kelasMatch = targetArr.some(function(t) { return kelasCocok(t, kelasSiswaNorm); });
+    if(!kelasMatch) continue;
+
+    // ✅ FIX: Bangun waktu dengan jamDariSheets langsung, 
+    // lalu gabungkan dengan tanggal hari ini kalau kolom tanggal kosong/invalid
+    var tglVal  = data[i][6];
+    var jamMulai = data[i][7];
+    var jamSelesai = data[i][8];
+
+    var tglStr = tglDariSheets(tglVal);
+    var mulaiStr  = jamDariSheets(jamMulai);
+    var selesaiStr = jamDariSheets(jamSelesai);
+
+    // Kalau tanggal kosong → pakai tanggal hari ini (ujian harian tanpa tanggal fix)
+    if(!tglStr || tglStr === '') {
+      tglStr = Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd");
+    }
+
+    var mulai   = new Date(tglStr + "T" + mulaiStr   + ":00+07:00");
+    var selesai = new Date(tglStr + "T" + selesaiStr + ":00+07:00");
+
+    // Validasi: kalau gagal parse, skip
+    if(isNaN(mulai.getTime()) || isNaN(selesai.getTime())) continue;
+
+    var durasi = parseInt(data[i][9]);
+    if(isNaN(durasi) || durasi <= 0) durasi = 90;
+
+    if(sekarang >= mulai && sekarang <= selesai) {
+      mapelTersedia.push({ idUjian: data[i][0], mapel: data[i][1], durasi: durasi });
+    }
+  }
+  return mapelTersedia;
+}
+
+// Debug via API — cek kondisi spreadsheet master dan kolom K MAPEL_AKTIF
+function debugNilai() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var shSet = ss.getSheetByName('SETTING');
+  var masterId = shSet.getRange('C8').getValue();
+
+  // 1. Cek ID master di SETTING C8
+  var masterInfo = {};
+  if(!masterId || masterId.toString().trim() === '') {
+    masterInfo = { ada: false, pesan: 'C8 kosong — spreadsheet master belum dibuat. Coba generate form dulu.' };
+  } else {
+    masterInfo = { ada: true, id: masterId.toString().trim(), url: 'https://docs.google.com/spreadsheets/d/' + masterId + '/edit' };
+    // Cek bisa dibuka
+    try {
+      var ssMaster = SpreadsheetApp.openById(masterId.toString().trim());
+      var tabs = ssMaster.getSheets().map(function(s){ return { nama: s.getName(), gid: s.getSheetId() }; });
+      masterInfo.tabs = tabs;
+      masterInfo.bisa_dibuka = true;
+    } catch(e) {
+      masterInfo.bisa_dibuka = false;
+      masterInfo.error = e.toString();
+    }
+  }
+
+  // 2. Cek kolom K (index 10) di MAPEL_AKTIF
+  var sM = ss.getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var mapelInfo = [];
+  for(var i = 1; i < sM.length; i++) {
+    if(!sM[i][0]) continue;
+    mapelInfo.push({
+      id:       sM[i][0],
+      mapel:    sM[i][1],
+      urlNilai: sM[i][10] ? sM[i][10].toString() : '(kosong)'
+    });
+  }
+
+  return { sukses: true, masterInfo: masterInfo, mapelInfo: mapelInfo };
+}
+
+// Debug via API — cek parsing waktu dan filter kelas
+function debugMapelAPI(kelas) {
+  var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var sekarang = new Date();
+  var kelasCek = kelas ? kelas.toString().trim().toUpperCase() : 'SEMUA';
+  var rows = [];
+
+  for(var i = 1; i < data.length; i++) {
+    if(!data[i][0]) continue;
+
+    var rawTgl    = data[i][6];
+    var rawMulai  = data[i][7];
+    var rawSelesai = data[i][8];
+
+    var tglStr     = tglDariSheets(rawTgl);
+    var mulaiStr   = jamDariSheets(rawMulai);
+    var selesaiStr = jamDariSheets(rawSelesai);
+
+    if(!tglStr || tglStr === '') tglStr = Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd");
+
+    var mulai   = new Date(tglStr + "T" + mulaiStr   + ":00+07:00");
+    var selesai = new Date(tglStr + "T" + selesaiStr + ":00+07:00");
+
+    var targetArr = (data[i][2] ? data[i][2].toString().toUpperCase() : "").split(',').map(function(k){ return k.trim(); });
+    var kelasMatch = kelasCek === 'SEMUA' || targetArr.indexOf(kelasCek) !== -1 || targetArr.indexOf(kelasCek.charAt(0)) !== -1;
+
+    rows.push({
+      id:         data[i][0],
+      mapel:      data[i][1],
+      kelas:      data[i][2],
+      status:     data[i][4],
+      tglRaw:     rawTgl ? rawTgl.toString().substring(0,30) : '(kosong)',
+      mulaiRaw:   rawMulai  ? rawMulai.toString().substring(0,30)  : '(kosong)',
+      selesaiRaw: rawSelesai ? rawSelesai.toString().substring(0,30) : '(kosong)',
+      tglParsed:   tglStr,
+      mulaiParsed: mulaiStr,
+      selesaiParsed: selesaiStr,
+      waktuMulai:  isNaN(mulai.getTime())   ? 'INVALID' : Utilities.formatDate(mulai,   "GMT+7", "HH:mm"),
+      waktuSelesai: isNaN(selesai.getTime()) ? 'INVALID' : Utilities.formatDate(selesai, "GMT+7", "HH:mm"),
+      sekarang:    Utilities.formatDate(sekarang, "GMT+7", "HH:mm"),
+      kelasMatch:  kelasMatch,
+      dalamJadwal: sekarang >= mulai && sekarang <= selesai,
+      tampil:      data[i][4].toString().trim().toUpperCase() === 'AKTIF' && kelasMatch && sekarang >= mulai && sekarang <= selesai
+    });
+  }
+  return {
+    sukses: true,
+    waktuServer: Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd HH:mm:ss"),
+    kelas: kelasCek,
+    rows: rows
+  };
+}
+
+// Debug via Logger — jalankan dari Apps Script Editor
+function debugMapelSiswa() {
+  var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var sekarang = new Date();
+  Logger.log("Waktu sekarang (WIB): " + Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd HH:mm:ss"));
+  for(var i = 1; i < data.length; i++) {
+    if(!data[i][0]) continue;
+    var tglStr     = tglDariSheets(data[i][6]);
+    var mulaiStr   = jamDariSheets(data[i][7]);
+    var selesaiStr = jamDariSheets(data[i][8]);
+    if(!tglStr || tglStr === '') tglStr = Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd");
+    var mulai   = new Date(tglStr + "T" + mulaiStr   + ":00+07:00");
+    var selesai = new Date(tglStr + "T" + selesaiStr + ":00+07:00");
+    Logger.log("ID: %s | Status: %s | Kelas: %s | Tgl: %s | Mulai: %s | Selesai: %s | Sekarang: %s | Tampil: %s",
+      data[i][0], data[i][4], data[i][2],
+      tglStr, mulaiStr, selesaiStr,
+      Utilities.formatDate(sekarang, "GMT+7", "HH:mm"),
+      (data[i][4].toString().trim().toUpperCase() === 'AKTIF' && sekarang >= mulai && sekarang <= selesai) ? "✅ YA" : "❌ TIDAK"
+    );
+  }
+}
+
+function verifikasiTokenDanMulai(ni, na, k, id, t) {
+  var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var row = data.find(r => r[0] && r[0].toString().trim().toUpperCase() === id.toString().trim().toUpperCase());
+  if (!row) return { sukses: false, pesan: "Ujian tidak ditemukan!" };
+  if ((row[4] ? row[4].toString().trim().toUpperCase() : "") !== 'AKTIF') return { sukses: false, pesan: "Ujian dinonaktifkan!" };
+  if (t.trim().toUpperCase() !== (row[3] ? row[3].toString().trim().toUpperCase() : "")) return { sukses: false, pesan: "TOKEN SALAH!" };
+  
+  var sekarang = new Date();
+  // ✅ Gunakan parser yang sama dengan getMapelSiswa — konsisten
+  var tglStr     = tglDariSheets(row[6]);
+  var mulaiStr   = jamDariSheets(row[7]);
+  var selesaiStr = jamDariSheets(row[8]);
+  if(!tglStr || tglStr === '') tglStr = Utilities.formatDate(sekarang, "GMT+7", "yyyy-MM-dd");
+  var mulai   = new Date(tglStr + "T" + mulaiStr   + ":00+07:00");
+  var selesai = new Date(tglStr + "T" + selesaiStr + ":00+07:00");
+  if (sekarang < mulai)   return { sukses: false, pesan: "Ujian belum dibuka! (Mulai: " + mulaiStr + ")" };
+  if (sekarang > selesai) return { sukses: false, pesan: "Waktu ujian sudah habis! (Selesai: " + selesaiStr + ")" };
+  if (!row[5]) return { sukses: false, pesan: "Link soal belum ada!" }; 
+  
+  var linkSoal = row[5].toString();
+  if(linkSoal.indexOf('TEMPLATE_NAMA') !== -1) {
+      linkSoal = linkSoal.replace('TEMPLATE_NAMA', encodeURIComponent(na)).replace('TEMPLATE_KELAS', encodeURIComponent(k));
+  }
+  if(linkSoal.indexOf('TEMPLATE_NIS') !== -1) {
+      linkSoal = linkSoal.replace('TEMPLATE_NIS', encodeURIComponent(ni));
+  }
+
+  var durasi = parseInt(row[9]);
+  if(isNaN(durasi) || durasi <= 0) durasi = 90;
+  var startMs = sekarang.getTime();
+  var endMs = startMs + durasi * 60 * 1000;
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LOG_KEHADIRAN').appendRow([new Date(), ni, na, k, row[1], "Sedang Mengerjakan", startMs, endMs, new Date().getTime()]);
+  return { sukses: true, link: linkSoal, mapel: row[1], durasi: durasi, endTime: endMs };
+}
+
+// --- FUNGSI PENDUKUNG, LOGIN & LOG (tidak berubah) ---
+
+function getDokumenData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sSet = ss.getSheetByName('SETTING');
+  var sM = ss.getSheetByName('MAPEL_AKTIF').getDataRange().getValues();
+  var sS = ss.getSheetByName('DATA_SANTRI').getDataRange().getValues();
+
+  var set = {
+    sekolah: (sSet && sSet.getRange('B1').getValue()) ? sSet.getRange('B1').getValue() : "SMP UNGGULAN ASHIDIQ",
+    kepala: (sSet && sSet.getRange('B2').getValue()) ? sSet.getRange('B2').getValue() : "Nama Kepala Sekolah",
+    nbm: (sSet && sSet.getRange('B3').getValue()) ? sSet.getRange('B3').getValue() : "-"
+  };
+
+  var mapel = [];
+  for(var i=1; i<sM.length; i++) {
+    if(sM[i][0]) {
+      var fBuka = formatTglJam(sM[i][6], sM[i][7]);
+      var fTutup = formatTglJam(sM[i][6], sM[i][8]);
+      mapel.push({id: sM[i][0], nama: sM[i][1], kelas: sM[i][2], tgl: fBuka.tgl, mulai: fBuka.jam, selesai: fTutup.jam});
+    }
+  }
+
+  var santri = [];
+  for(var j=1; j<sS.length; j++) { if(sS[j][0]) santri.push({nis: sS[j][0], nama: sS[j][1], kelas: sS[j][2]}); }
+  return { settings: set, mapel: mapel, santri: santri };
+}
+
+function login(u, p, r) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var key = String(r === 'admin' ? 'adm:' : 'sis:') + String(u || '').trim();
+  if (loginLocked_(key)) return { sukses: false, pesan: 'Terlalu banyak gagal. Coba lagi 5 menit.', kode: 'LOCKED' };
+
+  if (r === 'admin') {
+    var sh = ss.getSheetByName('SETTING');
+    var adminU = (sh && sh.getRange('B4').getValue()) ? sh.getRange('B4').getValue().toString().trim() : "admin";
+    var adminP = (sh && sh.getRange('B5').getValue()) ? sh.getRange('B5').getValue().toString().trim() : "123";
+
+    var proktorU = (sh && sh.getRange('C6').getValue()) ? sh.getRange('C6').getValue().toString().trim() : "proktor";
+    var proktorP = (sh && sh.getRange('C7').getValue()) ? sh.getRange('C7').getValue().toString().trim() : "12345";
+
+    if (u === adminU && p === adminP) { loginOk_(key); return { sukses: true, role: 'admin', nama: "Super Administrator", token: issueToken({ role: 'admin', nama: "Super Administrator" }) }; }
+    if (u === proktorU && p === proktorP) { loginOk_(key); return { sukses: true, role: 'proktor', nama: "Proktor Ujian", token: issueToken({ role: 'proktor', nama: "Proktor Ujian" }) }; }
+
+    var sisa = loginFail_(key);
+    return { sukses: false, pesan: 'Username / Password Admin/Proktor salah!' + (sisa <= 2 ? ' Sisa ' + sisa + 'x.' : '') };
+  } else {
+    var d = ss.getSheetByName('DATA_SANTRI').getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var nisDb = d[i][0] ? d[i][0].toString().trim() : "";
+      if (nisDb === u && (d[i][3] ? d[i][3].toString().trim() : "") === p) {
+        loginOk_(key);
+        var s = { role: 'siswa', nis: nisDb, nama: d[i][1], kelas: d[i][2] };
+        s.token = issueToken(s);
+        return s;
+      }
+    }
+    var sisaS = loginFail_(key);
+    return { sukses: false, pesan: 'NIS / Password Siswa salah!' + (sisaS <= 2 ? ' Sisa ' + sisaS + 'x.' : '') };
+  }
+}
+
+function getDashboardData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var dS = ss.getSheetByName('DATA_SANTRI'); 
+  var dM = ss.getSheetByName('MAPEL_AKTIF'); 
+  var dL = ss.getSheetByName('LOG_KEHADIRAN');
+  var logs = [];
+  if (dL) {
+    var d = dL.getDataRange().getValues();
+    for (var i = d.length - 1; i > 0 && logs.length < 50; i--) {
+      logs.push({ waktu: Utilities.formatDate(new Date(d[i][0]), "GMT+7", "HH:mm"), nis: d[i][1], nama: d[i][2], mapel: d[i][4], status: d[i][5] });
+    }
+  }
+  return { 
+      totalSantri: dS ? dS.getLastRow()-1 : 0, 
+      totalMapel: dM ? dM.getDataRange().getValues().filter((r,i)=> i>0 && (r[4]?r[4].toString().toUpperCase():'')=='AKTIF').length : 0, 
+      logKehadiran: logs 
+  };
+}
+
+function clearLog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('LOG_KEHADIRAN');
+  var lastRow = sh.getLastRow();
+  if (lastRow <= 1) return { sukses: true, pesan: "Log sudah kosong." };
+  var arsip = ss.getSheetByName('LOG_ARSIP');
+  if (!arsip) arsip = ss.insertSheet('LOG_ARSIP');
+  var data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  var cap = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm");
+  data.forEach(function(r) { arsip.appendRow(["ARSIP " + cap].concat(r)); });
+  sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).clearContent();
+  return { sukses: true, pesan: "Log diarsipkan ke LOG_ARSIP (" + data.length + " baris), layar dibersihkan." };
+}
+
+function forceLogout(nis, mapel) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LOG_KEHADIRAN');
+  var d = sh.getDataRange().getValues();
+  for(var i = d.length-1; i > 0; i--) {
+    if(d[i][1] == nis && d[i][4] == mapel && d[i][5] == "Sedang Mengerjakan") {
+      sh.getRange(i + 1, 6).setValue("Di-Kick");
+      return { sukses: true, pesan: "Siswa berhasil dikeluarkan!" };
+    }
+  }
+  return { sukses: false, pesan: "Siswa tidak sedang ujian." };
+}
+
+function cekStatusSiswa(nis, sess) {
+  if (sess && sess.role === 'siswa' && String(sess.nis) !== String(nis)) {
+    return { status: "Kicked" };
+  }
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LOG_KEHADIRAN');
+  if(!sh) return { status: "Aman" };
+  var d = sh.getDataRange().getValues();
+  for(var i = d.length-1; i > 0; i--) {
+    if(String(d[i][1]) === String(nis)) {
+      if (d[i][5] === "Di-Kick") return { status: "Kicked" };
+      if (d[i][5] === "Sedang Mengerjakan") return { status: "Aman", endTime: d[i][7] || 0 };
+      return { status: "Aman" };
+    }
+  }
+  return { status: "Aman" };
+}
+
+function getSantriData() {
+  var d = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA_SANTRI').getDataRange().getValues();
+  var out = [];
+  for(var i=1; i<d.length; i++) if(d[i][0]) out.push({nis: d[i][0], nama: d[i][1], kelas: d[i][2], pass: d[i][3], adaPass: !!(d[i][3] && d[i][3].toString().trim())});
+  return out;
+}
+
+function heartbeat(nis, sess) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LOG_KEHADIRAN');
+  var d = sh.getDataRange().getValues();
+  for(var i = d.length-1; i > 0; i--) {
+    if(String(d[i][1]) === String(nis) && d[i][5] === "Sedang Mengerjakan") {
+      sh.getRange(i + 1, 9).setValue(new Date().getTime());
+      return { sukses: true, status: "Aman", endTime: d[i][7] || 0 };
+    }
+    if(String(d[i][1]) === String(nis) && d[i][5] === "Di-Kick") {
+      return { sukses: true, status: "Kicked" };
+    }
+  }
+  return { sukses: true, status: "Aman" };
+}
+
+function getUnlockInterval_() {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty('UNLOCK_INTERVAL');
+    var n = parseInt(v);
+    return (n > 0) ? n : 5;
+  } catch(e) { return 5; }
+}
+function unlockSeed_() {
+  var now = Math.floor(new Date().getTime() / 1000);
+  return Math.floor(now / (getUnlockInterval_() * 60));
+}
+function kodeFromSeed_(seed) {
+  var CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '', n = Math.abs(seed);
+  for (var i = 0; i < 6; i++) {
+    code += CH.charAt(n % CH.length);
+    n = Math.floor(n / CH.length) + (n * 31 + 7);
+  }
+  return code;
+}
+function getUnlockCode() {
+  return { sukses: true, kode: kodeFromSeed_(unlockSeed_()), interval: getUnlockInterval_(), sisaDetik: getUnlockInterval_()*60 - (Math.floor(new Date().getTime()/1000) % (getUnlockInterval_()*60)) };
+}
+function setUnlockInterval(v) {
+  var n = parseInt(v);
+  if (!n || n < 1 || n > 60) return { sukses: false, pesan: "Interval 1-60 menit." };
+  PropertiesService.getScriptProperties().setProperty('UNLOCK_INTERVAL', String(n));
+  return { sukses: true, pesan: "Interval kode diset ke " + n + " menit." };
+}
+function getViolationLimit() {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty('VIOLATION_LIMIT');
+    var n = parseInt(v);
+    return { sukses: true, limit: (n > 0) ? n : 5 };
+  } catch(e) { return { sukses: true, limit: 5 }; }
+}
+function setViolationLimit(v) {
+  var n = parseInt(v);
+  if (!n || n < 1 || n > 20) return { sukses: false, pesan: "Batas 1-20." };
+  PropertiesService.getScriptProperties().setProperty('VIOLATION_LIMIT', String(n));
+  return { sukses: true, pesan: "Batas pelanggaran diset ke " + n + "x." };
+}
+function validateUnlock(code) {
+  var inp = (code || '').toString().trim().toUpperCase();
+  if (inp === kodeFromSeed_(unlockSeed_()) || inp === kodeFromSeed_(unlockSeed_() - 1)) return { sukses: true };
+  return { sukses: false, pesan: "Kode salah atau kadaluarsa." };
+}
+
+function akhiriUjian(ni, na, k, m) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LOG_KEHADIRAN');
+  var d = sh.getDataRange().getValues(); var b = false; var terlambat = false;
+  for(var i = d.length-1; i > 0; i--) {
+    if(String(d[i][1]) === String(ni) && d[i][4] == m && d[i][5] == "Sedang Mengerjakan") {
+      var endMs = parseInt(d[i][7], 10);
+      if (!isNaN(endMs) && endMs > 0 && new Date().getTime() > endMs + 60000) {
+        sh.getRange(i + 1, 6).setValue("Terlambat");
+        terlambat = true;
+      } else {
+        sh.getRange(i + 1, 6).setValue("Selesai");
+      }
+      b = true; break;
+    }
+  }
+  if(!b) sh.appendRow([new Date(), ni, na, k, m, "Selesai"]);
+  if (terlambat) return { sukses: true, terlambat: true, pesan: "Waktu habis — tercatat TERLAMBAT." };
+  return { sukses: true };
+}
+
+function tambahDataKeSheet(shName, dataArr) {
+  if (['DATA_SANTRI', 'MAPEL_AKTIF'].indexOf(shName) === -1) {
+    return { sukses: false, pesan: "Sheet tidak diizinkan." };
+  }
+  var row = Array.isArray(dataArr) ? dataArr : String(dataArr).split(",");
+  if (shName === 'DATA_SANTRI' && row.length > 4) row = row.slice(0, 4);
+  if (shName === 'MAPEL_AKTIF' && row.length > 10) row = row.slice(0, 10);
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(shName).appendRow(row);
+  return { sukses: true, pesan: "Berhasil disimpan!" };
+}
+
+function updateSettingSekolah(n, k, nb, up, pp) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('SETTING');
+  sh.getRange('B1').setValue(n); 
+  sh.getRange('B2').setValue(k); 
+  sh.getRange('B3').setValue(nb);
+  if(up) sh.getRange('C6').setValue(up); 
+  if(pp) sh.getRange('C7').setValue(pp);
+  return { sukses: true, pesan: "Update Setting Berhasil!" };
+}
+
+function generateTokensMasal() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MAPEL_AKTIF');
+  var d = sh.getDataRange().getValues(); var c = 0;
+  for (var i = 1; i < d.length; i++) {
+    if (d[i][0] && (!d[i][3] || d[i][3].toString().trim() === "")) { sh.getRange(i + 1, 4).setValue(makeRandomCode(5)); c++; }
+  }
+  return { sukses: true, pesan: c + " Token dibuat!" };
+}
+
+function generatePasswordsMasal() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA_SANTRI');
+  var d = sh.getDataRange().getValues(); var c = 0;
+  for (var i = 1; i < d.length; i++) {
+    if (d[i][0] && (!d[i][3] || d[i][3].toString().trim() === "")) { sh.getRange(i + 1, 4).setValue(makeRandomCode(6)); c++; }
+  }
+  return { sukses: true, pesan: c + " Password dibuat!" };
+}
+
+function makeRandomCode(len) {
+  var res = '', chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (var i = 0; i < len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+  return res;
+}
+
+// ======================================================
+// DEBUG: Jalankan fungsi ini dari Apps Script Editor
+// untuk verifikasi parser waktu sudah benar
+// ======================================================
+function debugWaktu() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sM = ss.getSheetByName('MAPEL_AKTIF');
+  var d  = sM.getDataRange().getValues();
+
+  for(var i = 1; i < d.length; i++) {
+    if(!d[i][0]) continue;
+    var rawTgl   = d[i][6];
+    var rawMulai = d[i][7];
+    var rawSelesai = d[i][8];
+
+    var tgl     = tglDariSheets(rawTgl);
+    var mulai   = jamDariSheets(rawMulai);
+    var selesai = jamDariSheets(rawSelesai);
+
+    Logger.log("ID: %s | Tgl: %s | Mulai: %s | Selesai: %s | rawMulai type: %s | rawMulai val: %s",
+      d[i][0], tgl, mulai, selesai,
+      typeof rawMulai,
+      rawMulai instanceof Date ? rawMulai.toISOString() : rawMulai
+    );
+  }
+}
+
+
+// ✅ CEK APAKAH SISWA SUDAH SUBMIT (dari spreadsheet jawaban)
+// Match utama NIS exact, fallback nama fuzzy untuk form lama tanpa kolom NIS
+function cekJawabanSiswa(nama, kelas, idUjian, nis) {
+  try {
+    Logger.log("🔍 cekJawabanSiswa - Nama: " + nama + ", Kelas: " + kelas + ", ID: " + idUjian);
+
+    // Helper: normalisasi → buang semua selain huruf+angka, lowercase
+    function norm(v) {
+      return v ? v.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    }
+
+    // 1. Ambil ID spreadsheet master dari SETTING C8
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var shSet = ss.getSheetByName('SETTING');
+    var masterId = shSet.getRange('C8').getValue();
+
+    if(!masterId || masterId.toString().trim() === '') {
+      return { sudahSubmit: false, pesan: 'Spreadsheet master belum dibuat (SETTING C8 kosong)' };
+    }
+
+    // 2. Cari tab ujian berdasarkan ID
+    var ssMaster = SpreadsheetApp.openById(masterId.toString().trim());
+    var sheets = ssMaster.getSheets();
+    var cleanId = idUjian ? idUjian.toString().trim().toUpperCase() : '';
+
+    var targetSheet = null;
+    for(var i = 0; i < sheets.length; i++) {
+      var sheetName = sheets[i].getName();
+      if(cleanId && sheetName.toUpperCase().indexOf(cleanId) !== -1) {
+        targetSheet = sheets[i];
+      }
+    }
+
+    if(!targetSheet) {
+      return { sudahSubmit: false, pesan: 'Tab nilai belum tersedia untuk ujian ini.' };
+    }
+
+    // 3. Match utama NIS exact, fallback nama fuzzy (form lama tanpa kolom NIS)
+    var data = targetSheet.getDataRange().getValues();
+    var nisCari = nis ? String(nis).trim() : '';
+    var namaCari = norm(nama);
+    var kelasCari = norm(kelas);
+
+    Logger.log("📊 Rows: " + data.length + " | nisCari: '" + nisCari + "' namaCari: '" + namaCari + "'");
+
+    for(var row = 1; row < data.length; row++) {
+      var nisMatch = false;
+      var namaMatch = false;
+      var kelasMatch = false;
+
+      // Cek 6 kolom pertama (NIS biasanya kolom awal)
+      for(var col = 0; col < Math.min(data[row].length, 6); col++) {
+        var cellRaw = data[row][col] ? data[row][col].toString().trim() : '';
+        var cellNorm = norm(data[row][col]);
+        if(!cellNorm) continue;
+
+        if(nisCari && cellRaw === nisCari) nisMatch = true;
+        // Match nama: exact, atau saling mengandung (min 3 char biar gak false positif)
+        if(namaCari.length >= 3 && cellNorm.length >= 3 &&
+           (cellNorm === namaCari || cellNorm.indexOf(namaCari) !== -1 || namaCari.indexOf(cellNorm) !== -1)) {
+          namaMatch = true;
+        }
+        // Match kelas
+        if(kelasCari && cellNorm === kelasCari) {
+          kelasMatch = true;
+        }
+      }
+
+      if(nisMatch || (namaMatch && !nisCari)) {
+        Logger.log("✅ MATCH! Row: " + (row+1));
+        return {
+          sudahSubmit: true,
+          pesan: 'Jawaban ditemukan di baris ' + (row + 1),
+          row: row + 1,
+          tab: targetSheet.getName(),
+          nisMatch: nisMatch,
+          namaMatch: namaMatch,
+          kelasMatch: kelasMatch
+        };
+      }
+    }
+
+    return {
+      sudahSubmit: false,
+      pesan: 'Belum ada jawaban untuk NIS ini.',
+      tab: targetSheet.getName(),
+      totalRows: data.length
+    };
+
+  } catch(e) {
+    Logger.log("❌ Error: " + e.toString());
+    return { sudahSubmit: false, pesan: 'Error: ' + e.toString() };
+  }
+}
+
+
+// ==========================================
+// ✅ TEST MANUAL — jalankan dari Apps Script Editor
+// Lihat hasilnya di View > Logs (atau Ctrl+Enter)
+// ==========================================
+function testCekJawaban() {
+  // GANTI nilai di bawah sesuai data yang BARU SAJA submit:
+  var nama   = "Ahmad";    // ← nama siswa yang sudah submit
+  var kelas  = "11A";      // ← kelas siswa
+  var idUjian = "BI-11";   // ← ID ujian (sama dengan kode di MAPEL_AKTIF)
+
+  Logger.log("=== TEST cekJawabanSiswa ===");
+  var hasil = cekJawabanSiswa(nama, kelas, idUjian);
+  Logger.log("HASIL: " + JSON.stringify(hasil));
+
+  // Tampilkan juga isi mentah tab supaya kelihatan struktur kolomnya
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var masterId = ss.getSheetByName('SETTING').getRange('C8').getValue();
+  if(masterId) {
+    var ssMaster = SpreadsheetApp.openById(masterId.toString().trim());
+    var sheets = ssMaster.getSheets();
+    var cleanId = idUjian.toString().trim().toUpperCase();
+    for(var i = 0; i < sheets.length; i++) {
+      if(sheets[i].getName().toUpperCase().indexOf(cleanId) !== -1) {
+        var data = sheets[i].getDataRange().getValues();
+        Logger.log("=== ISI TAB: " + sheets[i].getName() + " (" + data.length + " baris) ===");
+        for(var r = 0; r < Math.min(data.length, 5); r++) {
+          Logger.log("Baris " + r + ": " + JSON.stringify(data[r].slice(0, 5)));
+        }
+        break;
+      }
+    }
+  }
+}

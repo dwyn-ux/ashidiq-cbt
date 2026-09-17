@@ -1,0 +1,6 @@
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+-keep class id.sch.ashidiq.cbt.MainActivity$Bridge { *; }
+-keep class id.sch.ashidiq.cbt.AdminReceiver { *; }
+-keep class id.sch.ashidiq.cbt.BootReceiver { *; }
+-dontwarn android.webkit.**

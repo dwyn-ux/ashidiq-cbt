@@ -43,7 +43,20 @@ class MainActivity : AppCompatActivity() {
     fun setExamMode(on: Boolean) {
       act.runOnUiThread { setExamModeInternal(on) }
     }
+
+    // Re-entry lock: true = app pernah keluar saat examMode → web wajib minta kode unlock admin
+    @JavascriptInterface
+    fun shouldRequireReentryCode(): Boolean = try {
+      act.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("escape_pending", false)
+    } catch (e: Exception) { false }
+
+    @JavascriptInterface
+    fun clearReentryFlag() {
+      try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
+    }
   }
+
+  companion object { private const val PREFS = "cbt_lock" }
 
   private fun isOwner(): Boolean = try { dpm.isDeviceOwnerApp(packageName) } catch (e: Exception) { false }
 
@@ -85,11 +98,20 @@ class MainActivity : AppCompatActivity() {
         return true
       }
       override fun onCreateWindow(v: WebView, dia: Boolean, user: Boolean, res: android.os.Message): Boolean {
+        // Popup login Google: dialog fullscreen + settings lengkap agar tidak blank/kecil
         val nv = WebView(v.context)
-        nv.settings.javaScriptEnabled = true
-        nv.settings.domStorageEnabled = true
+        nv.settings.apply {
+          javaScriptEnabled = true
+          domStorageEnabled = true
+          setSupportMultipleWindows(true)
+          javaScriptCanOpenWindowsAutomatically = true
+          loadWithOverviewMode = true
+          useWideViewPort = true
+          builtInZoomControls = true
+          displayZoomControls = false
+        }
         nv.webViewClient = v.webViewClient
-        val d = android.app.Dialog(v.context)
+        val d = android.app.Dialog(v.context, android.R.style.Theme_NoTitleBar_Fullscreen)
         d.setContentView(nv)
         nv.webChromeClient = object : WebChromeClient() {
           override fun onCloseWindow(w: WebView) { try { d.dismiss() } catch (e: Exception) { } }
@@ -118,11 +140,28 @@ class MainActivity : AppCompatActivity() {
     guard.post(guardRun)
   }
 
+  private fun setExcludeRecents(ex: Boolean) {
+    try {
+      val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+      am.appTasks.forEach { it.setExcludeFromRecents(ex) }
+    } catch (e: Exception) { }
+  }
+
+  override fun onStop() {
+    // App keluar dari layar saat examMode (home/overview/app lain/screen off) → tandai re-entry lock
+    if (examMode) {
+      try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", true).apply() } catch (e: Exception) { }
+    }
+    super.onStop()
+  }
+
   override fun onSaveInstanceState(o: Bundle) { try { web.saveState(o) } catch (e: Exception) { }; super.onSaveInstanceState(o) }
 
   private fun setExamModeInternal(on: Boolean) {
     examMode = on
+    setExcludeRecents(on) // sembunyikan dari Recent Apps selama ujian
     try {
+      if (!on) { try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { } }
       if (on) {
         if (isOwner()) { try { dpm.setStatusBarDisabled(admin, true) } catch (e: Exception) { }; try { dpm.setKeyguardDisabled(admin, true) } catch (e: Exception) { } }
         try { startLockTask() } catch (e: Exception) { }

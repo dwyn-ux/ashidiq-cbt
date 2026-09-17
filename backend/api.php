@@ -17,7 +17,7 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
 $ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
@@ -285,6 +285,15 @@ try {
       $nis = (string)($s['nis'] ?? $req['nis'] ?? '');
       $nama = (string)($s['nama'] ?? $req['nama'] ?? '');
       $kelas = (string)($s['kelas'] ?? $req['kelas'] ?? '');
+      // ✅ RE-ENTRY LOCK: app keluar saat ujian (Home/Overview/recent apps) → wajib kode unlock admin untuk lanjut
+      if (!empty($req['reentryCode'])) {
+        $inp = strtoupper(trim((string)$req['reentryCode']));
+        if (!($inp === kodeFromSeed_(unlockSeed()) || $inp === kodeFromSeed_(unlockSeed() - 1))) fail('KODE ADMIN salah/kadaluarsa. Minta kode terbaru ke pengawas.', 'REENTRY_INVALID');
+      } else {
+        $stR = $db->prepare("SELECT id FROM sessions WHERE exam_id = ? AND nis = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL LIMIT 1");
+        $stR->execute([$id, $nis]);
+        if ($stR->fetch()) fail('Ujian terkunci: terdeteksi keluar aplikasi saat ujian. Minta KODE ADMIN ke pengawas untuk melanjutkan.', 'REENTRY_REQUIRED');
+      }
       $mkLink = function() use ($ex, $nis, $nama, $kelas): string {
         $raw = (string)$ex['form_url'];
         if (strpos($raw, 'TEMPLATE_') !== false) {
@@ -399,6 +408,22 @@ try {
       $inp = strtoupper(trim((string)($req['code'] ?? '')));
       if ($inp === kodeFromSeed_(unlockSeed()) || $inp === kodeFromSeed_(unlockSeed() - 1)) out(['sukses' => true]);
       fail('Kode salah atau kadaluarsa.');
+    }
+
+    // ✅ Re-entry: cek apakah sesi ujian siswa masih aktif (untuk membuka/clear input kode admin di form login)
+    case 'cekSesiAktif': {
+      $db = db();
+      $nis = (string)($s['nis'] ?? '');
+      $st = $db->prepare("SELECT id FROM sessions WHERE nis = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL LIMIT 1");
+      $st->execute([$nis]);
+      if (!$st->fetch()) out(['sukses' => true, 'aktif' => false]);
+      $aktif = true;
+      if (!empty($req['idUjian'])) {
+        $st2 = $db->prepare("SELECT id FROM sessions WHERE exam_id = ? AND nis = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL LIMIT 1");
+        $st2->execute([(string)$req['idUjian'], $nis]);
+        $aktif = (bool)$st2->fetch();
+      }
+      out(['sukses' => true, 'aktif' => $aktif]);
     }
 
     case 'tambahData': {
