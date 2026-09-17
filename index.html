@@ -328,8 +328,8 @@
                 <input type="text" id="inp-idujian" class="w-full p-3 border rounded-xl uppercase" placeholder="ID Ujian">
                 <div>
                   <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (Pisahkan dengan koma)</label>
-                  <input type="text" id="inp-kelastarget" class="w-full p-3 border rounded-xl uppercase" placeholder="Contoh: 7A,7B,8A atau 7,8,9">
-                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
+                  <input type="text" id="inp-kelastarget" class="w-full p-3 border rounded-xl uppercase" placeholder="Contoh: 11A,11B atau SEMUA">
+                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Harus sesuai data santri (XI otomatis = 11). Isi SEMUA untuk semua kelas.</p>
                 </div>
               </div>
               <input type="text" id="inp-namamapel" class="w-full p-3 border rounded-xl" placeholder="Nama Mata Pelajaran">
@@ -350,13 +350,13 @@
             </div>
           </div>
           <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl mt-6">
-            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-csv text-green-600 mr-2"></i>Bulk Mapel (CSV)</h3>
-            <p class="text-xs text-slate-500 mb-3">Header: <code class="bg-slate-100 px-1 rounded font-mono">id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi</code>. Token kosong = auto-generate. ID duplikat = update. Tanggal YYYY-MM-DD, jam HH:MM.</p>
+            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-excel text-green-600 mr-2"></i>Bulk Mapel (Excel)</h3>
+            <p class="text-xs text-slate-500 mb-3">Kolom: <code class="bg-slate-100 px-1 rounded font-mono">id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi</code>. <b>kelas_1..3 wajib pilih dari dropdown</b> (daftar dari data santri, XI/11 otomatis sama). Isi <b>SEMUA</b> di kelas_1 untuk semua kelas. Token kosong = auto-generate. ID duplikat = update.</p>
             <div class="flex gap-2 mb-3">
-              <button onclick="unduhTemplate('mapel')" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template CSV</button>
-              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File<input type="file" id="file-bulk-mapel" accept=".csv,.txt" class="hidden" onchange="bacaFileBulk('mapel')"></label>
+              <button onclick="unduhTemplate('mapel')" id="btn-tpl-mapel" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template Excel</button>
+              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File (.xls/.csv)<input type="file" id="file-bulk-mapel" accept=".xls,.xlsx,.csv,.txt" class="hidden" onchange="bacaFileBulk('mapel')"></label>
             </div>
-            <textarea id="bulk-mapel" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi&#10;UJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90"></textarea>
+            <textarea id="bulk-mapel" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi&#10;UJ-01,Matematika,11A,11B,,A1B2C,Aktif,2026-09-15,07:30,09:00,90"></textarea>
             <button onclick="kirimBulk('mapel')" id="btn-bulk-mapel" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg mt-3 transition hover:bg-green-700">UPLOAD BULK</button>
           </div>
         </div>
@@ -986,20 +986,87 @@
         return rows.filter(r => r.some(v => v.trim() !== ''));
     }
 
-    function unduhTemplate(jenis) {
-        const csv = jenis === 'santri'
-            ? 'nis,nama,kelas,pass\n12345,Ahmad Ali,7A,abc123\n12346,Siti Nur,7A,\n'
-            : 'id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi\nUJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90\nUJ-02,Bahasa Indonesia,"7A,7B",,Aktif,2026-09-16,07:30,09:00,90\n';
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = jenis === 'santri' ? 'template_santri.csv' : 'template_mapel.csv';
-        a.click();
+    function loadXlsxLib() {
+        if (window.XLSX) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+            s.onload = resolve; s.onerror = () => reject(new Error('CDN SheetJS gagal dimuat.'));
+            document.head.appendChild(s);
+        });
+    }
+    function normKelasJS(k) {
+        k = String(k || '').toUpperCase().replace(/^KELAS\s+/, '').replace(/[\s.\-_]/g, '');
+        const map = [['XII','12'],['XI','11'],['IX','9'],['X','10'],['VIII','8'],['VII','7'],['VI','6']];
+        for (const [r, d] of map) { const re = new RegExp('^' + r + '(?=[0-9A-Z]|$)'); if (re.test(k)) { k = k.replace(re, d); break; } }
+        return k;
+    }
+    async function unduhTemplate(jenis) {
+        if (jenis === 'santri') {
+            const csv = 'nis,nama,kelas,pass\n12345,Ahmad Ali,7A,abc123\n12346,Siti Nur,7A,\n';
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = 'template_santri.csv';
+            a.click();
+            return;
+        }
+        const btn = document.getElementById('btn-tpl-mapel');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat...'; btn.disabled = true;
+        try {
+            await loadXlsxLib();
+            const res = await callAPI({ action: 'getKelasList' });
+            const daftar = (res.sukses && Array.isArray(res.kelas) && res.kelas.length ? res.kelas : []).slice().sort();
+            if (!daftar.length) { alert('Belum ada data santri. Input santri dulu sebelum buat template.'); return; }
+            const list = ['SEMUA'].concat(daftar);
+            const head = ['id','mapel','kelas_1','kelas_2','kelas_3','token','status','tanggal','mulai','selesai','durasi'];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([head, ['UJ-01','Matematika', daftar[0] || 'SEMUA', '', '', '', 'Aktif', '', '', '', 90]]);
+            const ref = XLSX.utils.decode_range(ws['!ref']);
+            for (let r = 2; r <= 501; r++) ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: ref.e.c, r: Math.max(ref.e.r, r - 1) } });
+            const hidden = XLSX.utils.aoa_to_sheet([['DaftarKelas']].concat(list.map(v => [v])));
+            XLSX.utils.book_append_sheet(wb, ws, 'Mapel');
+            XLSX.utils.book_append_sheet(wb, hidden, 'DaftarKelas');
+            wb.Workbook = wb.Workbook || {}; wb.Workbook.Sheets = wb.Workbook.Sheets || [];
+            wb.Workbook.Sheets[1] = Object.assign(wb.Workbook.Sheets[1] || {}, { Hidden: 1 });
+            // ponytail: dropdown Excel = data validation list, bukan proteksi sheet; user tetap bisa paste manual tapi server tolak bila asing.
+            const lastK = list.length;
+            ws['!dataValidations'] = [
+              { sqref: 'C2:E501', type: 'list', allowBlank: 1, showDropDown: 0, formula1: 'DaftarKelas!$A$2:$A$' + (lastK + 1) },
+              { sqref: 'G2:G501', type: 'list', allowBlank: 0, showDropDown: 0, formula1: '"Aktif,Nonaktif"' }
+            ];
+            XLSX.writeFile(wb, 'template_mapel.xlsx');
+        } catch (e) { alert(e.message || 'Gagal membuat template.'); }
+        finally { btn.innerHTML = '<i class="fas fa-download mr-1"></i> Template Excel'; btn.disabled = false; }
     }
 
     function bacaFileBulk(jenis) {
         const f = document.getElementById('file-bulk-' + jenis).files[0];
         if (!f) return;
         if (f.size > 512 * 1024) return alert('File maks 512KB.');
+        if (jenis === 'mapel' && /\.(xlsx|xls)$/i.test(f.name)) {
+            loadXlsxLib().then(() => {
+                const r = new FileReader();
+                r.onload = () => {
+                    try {
+                        const wb = XLSX.read(r.result, { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+                        if (!aoa.length) return alert('Sheet kosong!');
+                        const head = aoa[0].map(h => String(h).trim().toLowerCase());
+                        const need = ['id','mapel','kelas_1','kelas_2','kelas_3'];
+                        const miss = need.filter(k => !head.includes(k));
+                        if (miss.length) return alert('Kolom kurang: ' + miss.join(', ') + '. Pakai Template Excel.');
+                        const idx = k => head.indexOf(k);
+                        const lines = aoa.slice(1).filter(rw => rw.some(v => String(v).trim() !== '')).slice(0, 500)
+                            .map(rw => [rw[idx('id')] || '', rw[idx('mapel')] || '', rw[idx('kelas_1')] || '', rw[idx('kelas_2')] || '', rw[idx('kelas_3')] || '', idx('token') >= 0 ? rw[idx('token')] || '' : '', idx('status') >= 0 ? rw[idx('status')] || 'Aktif' : 'Aktif', idx('tanggal') >= 0 ? rw[idx('tanggal')] || '' : '', idx('mulai') >= 0 ? rw[idx('mulai')] || '' : '', idx('selesai') >= 0 ? rw[idx('selesai')] || '' : '', idx('durasi') >= 0 ? rw[idx('durasi')] || 90 : 90].map(v => String(v).includes(',') || String(v).includes('"') ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(','));
+                        document.getElementById('bulk-' + jenis).value = 'id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi\n' + lines.join('\n');
+                        alert(lines.length + ' baris dimuat. Cek lalu klik UPLOAD BULK.');
+                    } catch (e) { alert('Gagal baca Excel: ' + (e.message || e)); }
+                };
+                r.readAsArrayBuffer(f);
+            }).catch(e => alert(e.message));
+            return;
+        }
         const r = new FileReader();
         r.onload = () => { document.getElementById('bulk-' + jenis).value = r.result; alert('File dimuat. Cek isi lalu klik UPLOAD BULK.'); };
         r.readAsText(f);
@@ -1016,6 +1083,7 @@
         const data = isHeader ? lines.slice(1) : lines;
         let rows;
         if (jenis === 'santri') rows = data.map(c => ({ nis: c[0] || '', nama: c[1] || '', kelas: c[2] || '', pass: c[3] || '' }));
+        else if (head.includes('kelas_1')) { const i = k => head.indexOf(k); rows = data.map(c => ({ id: c[i('id')] || '', mapel: c[i('mapel')] || '', kelas_1: c[i('kelas_1')] || '', kelas_2: c[i('kelas_2')] || '', kelas_3: c[i('kelas_3')] || '', token: i('token') >= 0 ? c[i('token')] || '' : '', status: i('status') >= 0 ? c[i('status')] || 'Aktif' : 'Aktif', tanggal: i('tanggal') >= 0 ? c[i('tanggal')] || '' : '', mulai: i('mulai') >= 0 ? c[i('mulai')] || '' : '', selesai: i('selesai') >= 0 ? c[i('selesai')] || '' : '', durasi: i('durasi') >= 0 ? c[i('durasi')] || 90 : 90 })); }
         else rows = data.map(c => ({ id: c[0] || '', mapel: c[1] || '', kelas_target: c[2] || '', token: c[3] || '', status: c[4] || 'Aktif', tanggal: c[5] || '', mulai: c[6] || '', selesai: c[7] || '', durasi: c[8] || 90 }));
         const btn = document.getElementById('btn-bulk-' + jenis);
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengupload...'; btn.disabled = true;
@@ -1050,8 +1118,8 @@
        const data = window.cbtDokumenData; 
        const mapel = data.mapel.find(m => m.id === mapelId); 
        if(!mapel) return;
-       let targetKelas = mapel.kelas.split(',').map(k => k.trim().toUpperCase());
-       let peserta = data.santri.filter(s => { let kSiswa = s.kelas.toString().trim().toUpperCase(); return targetKelas.includes(kSiswa) || targetKelas.includes(kSiswa.charAt(0)); });
+        let targetKelas = mapel.kelas.split(',').map(k => normKelasJS(k));
+        let peserta = data.santri.filter(s => { let kSiswa = normKelasJS(s.kelas); return targetKelas.includes('SEMUA') || targetKelas.includes(kSiswa); });
         let html = `<html><head><title>Dokumen Ujian - ${esc(mapel.nama)}</title><style>body{font-family:'Times New Roman',Times,serif;padding:40px;font-size:12pt;color:black;}.kop{text-align:center;border-bottom:4px double black;padding-bottom:10px;margin-bottom:30px;}.kop h1{margin:0;font-size:18pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;}.judul{text-align:center;font-weight:bold;font-size:14pt;text-decoration:underline;margin-bottom:30px;letter-spacing:1px;}.isi{text-align:justify;line-height:1.6;margin-bottom:30px;}.table-info{margin-left:20px;margin-bottom:20px;line-height:1.6;}.table-info td{vertical-align:top;}.table-peserta{border-collapse:collapse;margin-top:20px;margin-bottom:30px;width:100%;font-size:11pt;}.table-peserta th,.table-peserta td{border:1px solid black;padding:8px 12px;}.table-peserta th{background-color:#f0f0f0;}.ttd{width:100%;margin-top:50px;page-break-inside:avoid;}.ttd td{width:33%;text-align:center;vertical-align:bottom;height:120px;line-height:1.3;}@media print{.page-break{page-break-before:always;}}</style></head><body onload="window.print()">
         <div class="kop"><h1>PANITIA UJIAN BERBASIS KOMPUTER (CBT)</h1><h1>${esc(data.settings.sekolah)}</h1></div>
         <div class="judul">BERITA ACARA PELAKSANAAN UJIAN</div>

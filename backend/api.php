@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -100,14 +100,33 @@ function login(string $u, string $p, string $r) {
 }
 
 // ---------- helpers ----------
+// ponytail: suffix selain 1 huruf (IPA/IPS) dibuang; upgrade ke kolom jurusan bila perlu.
+function normKelas(string $k): string {
+  $k = strtoupper(trim($k));
+  $k = preg_replace('/^KELAS\s+/', '', $k) ?? $k;
+  $k = str_replace([' ', '.', '-', '_'], '', $k);
+  // ponytail: tanpa word-boundary, 'XII' di 'XIII' ikut kepotong; aman utk tingkat valid 7-12.
+  $map = ['XII' => '12', 'XI' => '11', 'IX' => '9', 'X' => '10', 'VIII' => '8', 'VII' => '7', 'VI' => '6'];
+  foreach ($map as $r => $d) $k = preg_replace('/^' . $r . '(?=\d|[A-Z]|$)/', $d, $k) ?? $k;
+  return $k;
+}
 function kelasCocok(string $target, string $siswa): bool {
-  if (!$target) return false;
+  $target = normKelas($target);
+  $siswa = normKelas($siswa);
+  if ($target === '' || $target === 'SEMUA') return $target === 'SEMUA';
   if ($siswa === $target) return true;
   if (preg_match('/^[0-9]+$/', $target) && strpos($siswa, $target) === 0) {
     $sisa = substr($siswa, strlen($target));
     return $sisa === '' || preg_match('/^[A-Z]/', $sisa) === 1;
   }
   return false;
+}
+function kelasList(): array {
+  $rows = db()->query('SELECT DISTINCT kelas FROM students ORDER BY kelas')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+  $out = [];
+  foreach ($rows as $k) { $n = normKelas((string)$k); if ($n !== '' && !in_array($n, $out, true)) $out[] = $n; }
+  sort($out);
+  return $out;
 }
 function examWindow(?string $tgl, ?string $mulai, ?string $selesai): array {
   $tz = new DateTimeZone('Asia/Jakarta');
@@ -231,12 +250,16 @@ try {
       out(['sukses' => true, 'pesan' => "$n Token dibuat!"]);
     }
 
+    case 'getKelasList': {
+      out(['sukses' => true, 'kelas' => kelasList()]);
+    }
+
     case 'getMapel': {
-      $kelas = strtoupper(str_replace(' ', '', (string)($s['kelas'] ?? $req['kelas'] ?? '')));
+      $kelas = normKelas((string)($s['kelas'] ?? $req['kelas'] ?? ''));
       $rows = db()->query("SELECT id, mapel, kelas_target, durasi, tanggal, mulai, selesai FROM exams WHERE status = 'Aktif'")->fetchAll();
       $out = [];
       foreach ($rows as $r) {
-        $targets = array_map(fn($k) => strtoupper(str_replace(' ', '', trim($k))), explode(',', (string)$r['kelas_target']));
+        $targets = array_map(fn($k) => trim($k), explode(',', (string)$r['kelas_target']));
         $match = false;
         foreach ($targets as $t) if (kelasCocok($t, $kelas)) { $match = true; break; }
         if (!$match) continue;
@@ -371,6 +394,7 @@ try {
       if (!is_array($row)) $row = explode(',', (string)$row);
       if ($sheet === 'DATA_SANTRI') {
         $row = array_slice(array_pad($row, 4, ''), 0, 4);
+        $row[2] = normKelas((string)$row[2]);
         $db->prepare('INSERT INTO students (nis, nama, kelas, pass) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE nama = VALUES(nama), kelas = VALUES(kelas), pass = VALUES(pass)')->execute($row);
         out(['sukses' => true, 'pesan' => 'Berhasil disimpan!']);
       }
@@ -378,6 +402,12 @@ try {
         $row = array_slice(array_pad($row, 10, ''), 0, 10);
         $row[9] = (int)$row[9] > 0 ? (int)$row[9] : 90;
         if (trim((string)$row[0]) === '' || trim((string)$row[1]) === '' || trim((string)$row[2]) === '') fail('ID, mapel, dan kelas target wajib diisi.');
+        $parts = array_values(array_filter(array_map(fn($k) => normKelas($k), explode(',', (string)$row[2])), fn($v) => $v !== ''));
+        $row[2] = in_array('SEMUA', $parts, true) ? 'SEMUA' : implode(',', $parts);
+        if ($row[2] !== '' && $row[2] !== 'SEMUA') {
+          $daftarS = kelasList();
+          foreach (explode(',', $row[2]) as $satu) if (!in_array($satu, $daftarS, true)) fail("Kelas '$satu' tidak ada di data santri.");
+        }
         if (trim((string)$row[3]) === '') $row[3] = substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 5);
         foreach ([6, 7, 8] as $i) if (trim((string)$row[$i]) === '') $row[$i] = null;
         if ($row[6] !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$row[6])) fail('Format tanggal harus YYYY-MM-DD.');
@@ -404,7 +434,7 @@ try {
           if (!is_array($r)) { $skip++; continue; }
           $nis = strtoupper(trim((string)($r['nis'] ?? '')));
           $nama = trim((string)($r['nama'] ?? ''));
-          $kelas = strtoupper(str_replace(' ', '', trim((string)($r['kelas'] ?? ''))));
+          $kelas = normKelas((string)($r['kelas'] ?? ''));
           $pass = trim((string)($r['pass'] ?? ''));
           if ($nis === '' || $nama === '' || $kelas === '') { $skip++; continue; }
           if (strlen($nis) > 32 || strlen($nama) > 128 || strlen($kelas) > 16 || strlen($pass) > 32) { $skip++; continue; }
@@ -429,19 +459,31 @@ try {
       if (!is_array($rows)) fail('Format rows tidak valid.');
       if (!count($rows)) fail('Tidak ada data.');
       if (count($rows) > 500) fail('Maksimal 500 baris per upload.');
+      $daftar = kelasList();
       $upd = $db->prepare("UPDATE exams SET mapel = ?, kelas_target = ?, token = COALESCE(NULLIF(?, ''), token), status = ?, tanggal = COALESCE(NULLIF(?, ''), tanggal), mulai = COALESCE(NULLIF(?, ''), mulai), selesai = COALESCE(NULLIF(?, ''), selesai), durasi = ? WHERE id = ?");
       $ins = $db->prepare("INSERT INTO exams (id, mapel, kelas_target, token, status, tanggal, mulai, selesai, durasi) VALUES (?,?,?,?,?,NULLIF(?,''),NULLIF(?,''),NULLIF(?,''),?)");
       $ok = 0; $skip = 0;
       $db->beginTransaction();
       try {
+        $ln = 1;
         foreach ($rows as $r) {
+          $ln++;
           if (!is_array($r)) { $skip++; continue; }
           $id = strtoupper(trim((string)($r['id'] ?? '')));
           $mapel = trim((string)($r['mapel'] ?? ''));
-          $kelas = strtoupper(str_replace(' ', '', trim((string)($r['kelas_target'] ?? ''))));
+          $rawK = [(string)($r['kelas_1'] ?? ''), (string)($r['kelas_2'] ?? ''), (string)($r['kelas_3'] ?? '')];
+          if (trim(implode('', $rawK)) === '' && isset($r['kelas_target'])) $rawK = array_merge(explode(',', (string)$r['kelas_target']), ['', '', '']);
+          $ks = [];
+          foreach (array_slice($rawK, 0, 3) as $rk) {
+            $nk = normKelas($rk);
+            if ($nk === '') continue;
+            if ($nk !== 'SEMUA' && !in_array($nk, $daftar, true)) { $db->rollBack(); fail("Baris $ln: kelas '$rk' tidak ada di data santri. Pilih dari dropdown template."); }
+            if (!in_array($nk, $ks, true)) $ks[] = $nk;
+          }
+          $kelas = in_array('SEMUA', $ks, true) ? 'SEMUA' : implode(',', $ks);
           $token = strtoupper(trim((string)($r['token'] ?? '')));
           $status = trim((string)($r['status'] ?? 'Aktif'));
-          if ($status !== 'Aktif' && $status !== 'Nonaktif') $status = 'Aktif';
+          if ($status !== 'Aktif' && $status !== 'Nonaktif') { $db->rollBack(); fail("Baris $ln: status harus Aktif/Nonaktif (pilih dari dropdown)."); }
           $tgl = trim((string)($r['tanggal'] ?? ''));
           if ($tgl !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) $tgl = '';
           $mulai = trim((string)($r['mulai'] ?? ''));
@@ -461,15 +503,23 @@ try {
           $ok++;
         }
         $db->commit();
-      } catch (Throwable $e) { $db->rollBack(); fail('Gagal bulk: ' . $e->getMessage()); }
+      } catch (Throwable $e) { try { $db->rollBack(); } catch (Throwable $ignored) {} fail(strpos($e->getMessage(), 'Baris ') === 0 ? $e->getMessage() : 'Gagal bulk: ' . $e->getMessage()); }
       audit($s['nama'] ?? '', 'BULK_MAPEL', "$ok ok, $skip skip");
       out(['sukses' => true, 'pesan' => "Bulk mapel: $ok tersimpan, $skip dilewati."]);
     }
 
     case 'editMapel': {
       $db = db();
+      $klsRaw = trim((string)($req['kelas'] ?? ''));
+      $klsParts = $klsRaw === '' ? [] : array_map(fn($k) => normKelas($k), explode(',', $klsRaw));
+      $klsParts = array_values(array_filter($klsParts, fn($v) => $v !== ''));
+      $kls = in_array('SEMUA', $klsParts, true) ? 'SEMUA' : implode(',', $klsParts);
+      if ($kls !== '' && $kls !== 'SEMUA') {
+        $daftar = kelasList();
+        foreach (explode(',', $kls) as $satu) if (!in_array($satu, $daftar, true)) fail("Kelas '$satu' tidak ada di data santri.");
+      }
       $db->prepare('UPDATE exams SET mapel = COALESCE(NULLIF(?, ""), mapel), kelas_target = COALESCE(NULLIF(?, ""), kelas_target), token = COALESCE(NULLIF(?, ""), token), status = ?, tanggal = NULLIF(?, ""), mulai = NULLIF(?, ""), selesai = NULLIF(?, ""), durasi = ?, form_url = COALESCE(NULLIF(?, ""), form_url) WHERE id = ?')->execute([
-        (string)($req['mapel'] ?? ''), (string)($req['kelas'] ?? ''), (string)($req['examToken'] ?? ''),
+        (string)($req['mapel'] ?? ''), $kls, (string)($req['examToken'] ?? ''),
         (string)($req['status'] ?? 'Aktif'), (string)($req['tgl'] ?? ''), (string)($req['mulai'] ?? ''), (string)($req['selesai'] ?? ''),
         (int)($req['durasi'] ?? 90), (string)($req['formUrl'] ?? ''), (string)($req['id'] ?? ''),
       ]);

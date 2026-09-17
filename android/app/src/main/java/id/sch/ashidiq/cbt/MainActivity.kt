@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
       guard.postDelayed(this, 500)
     }
   }
-  private val allowed = listOf("docs.google.com", "drive.google.com", "accounts.google.com", "ssl.gstatic.com", "fonts.gstatic.com", "cdnjs.cloudflare.com", "cdn.tailwindcss.com", "smpmuashidiq.sch.id", "images.unsplash.com", "script.google.com", "script.googleusercontent.com")
+  private val allowed = listOf("docs.google.com", "drive.google.com", "accounts.google.com", "ssl.gstatic.com", "fonts.gstatic.com", "cdnjs.cloudflare.com", "cdn.tailwindcss.com", "cdn.sheetjs.com", "smpmuashidiq.sch.id", "images.unsplash.com", "script.google.com", "script.googleusercontent.com")
 
   inner class Bridge(private val act: Activity) {
     @JavascriptInterface
