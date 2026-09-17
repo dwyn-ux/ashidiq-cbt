@@ -6,8 +6,8 @@ compileSdk = 36
       applicationId = "com.ashidiq.test"
       minSdk = 26
       targetSdk = 36
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
         buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
         buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
         // "webview" = HYBRID (dipakai sekarang): halaman ujian di WebView dalam app supaya lockdown penuh

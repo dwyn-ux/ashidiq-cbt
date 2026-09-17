@@ -483,7 +483,10 @@
     <main class="flex-1 p-6 relative overflow-y-auto">
       <div id="siswa-tahap-verifikasi" class="max-w-3xl mx-auto mt-6">
         <div class="bg-blue-600 text-white p-6 rounded-t-3xl shadow-xl flex justify-between items-center">
-          <div><h2 class="text-2xl font-black italic tracking-tighter">DAFTAR UJIAN AKTIF</h2></div>
+          <div>
+            <h2 class="text-2xl font-black italic tracking-tighter">DAFTAR UJIAN AKTIF</h2>
+            <p id="kunci-mode" class="text-[10px] font-black tracking-widest mt-1"></p>
+          </div>
           <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
         </div>
         <div id="info-chrome" class="bg-blue-50 border-x border-b border-blue-200 px-6 py-3">
@@ -1330,6 +1333,22 @@
       else window.location.href = url;
     }
 
+    // Status kunci perangkat: Device Owner = Home/Recents/app lain benar-benar diblokir.
+    // Bukan device owner = kunci terbatas (app balik sendiri + wajib kode admin untuk masuk lagi).
+    function cekModeKunci() {
+      const el = document.getElementById('kunci-mode');
+      if (!el) return;
+      let owner = false;
+      try { owner = !!(window.Android && window.Android.isDeviceOwner && window.Android.isDeviceOwner()); } catch(e) {}
+      if (owner) {
+        el.innerText = '🔒 KUNCI PENUH AKTIF';
+        el.className = 'text-[10px] font-black tracking-widest mt-1 text-green-300';
+      } else {
+        el.innerText = '⚠ KUNCI TERBATAS — HP belum jadi device owner';
+        el.className = 'text-[10px] font-black tracking-widest mt-1 text-amber-300';
+      }
+    }
+
     // Dipanggil dari native (MainActivity.onResume) saat siswa kembali dari Chrome
     function kembaliDariFormChrome() {
       tabFormChrome = false;
@@ -1372,6 +1391,11 @@
           jalankanTimer();
           startDeteksiSubmit(); // ✅ Mulai deteksi submit form
           paksaFullscreen();
+          // ✅ Login Google WAJIB → Google Form tidak bisa jalan di iframe WebView (tidak ada sesi Google),
+          // jadi Form langsung dibuka di Chrome. Tombol BUKA SOAL DI CHROME tetap ada untuk buka ulang.
+          if (window.Android && typeof window.Android.openForm === 'function') {
+            setTimeout(() => { try { bukaFormDiChrome(); } catch(e) {} }, 500);
+          }
       } else {
         err.innerText = "* " + res.pesan; err.classList.remove('hidden');
         // Kalau ada flag keluar-app saat ujian, coba clear bila sesi lama sudah tidak aktif
@@ -1774,6 +1798,7 @@
         }
       } catch(e) {}
       try { if(window.Android) window.Android.setExamMode(true); } catch(e) {}
+      try { cekModeKunci(); } catch(e) {}
       const e = document.documentElement;
       if(e.requestFullscreen)            e.requestFullscreen().catch(()=>{});
       else if(e.webkitRequestFullscreen) e.webkitRequestFullscreen();

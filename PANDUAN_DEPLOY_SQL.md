@@ -106,10 +106,51 @@ Kalau `assetlinks.json` belum terpasang, TWA otomatis turun jadi Custom Tab (mas
 
 Cara paling murah (tanpa build APK, tanpa Chrome): buka Google Form > **Settings** > tab **Responses** → matikan **"Limit to 1 response"** dan pilih **"Collect email addresses" = Do not collect**. Setelah itu Form terbuka di iframe dalam app tanpa login sama sekali, dan semua kunci ujian tetap aktif.
 
+## 7. Kunci penuh: Device Owner (blokir Home / app lain)
+
+App biasa **tidak bisa** memblokir tombol Home, Recent Apps, atau app lain. Yang bisa hanya **Device Owner + Lock Task Mode**. Tanpa itu app hanya best-effort: siswa masih bisa keluar, tapi app balik sendiri dan wajib kode admin untuk masuk lagi.
+
+### 7.1 Provisioning (sekali per HP, butuh kabel + adb)
+
+HP wajib **belum punya akun** dan **belum punya device owner** saat di-provision. Kalau sudah dipakai siswa, factory reset dulu.
+
+```bash
+adb shell dpm set-device-owner id.sch.ashidiq.cbt/.AdminReceiver
+```
+
+Muncul `Success: Device owner set to package ComponentInfo{...}` = berhasil.
+
+Urutannya: reset HP → pasang APK (jangan dibuka dulu) → jalankan perintah adb → buka app → **baru** login akun Google di Chrome. Akun Google boleh ditambah setelah provisioning — larangan "tanpa akun" hanya berlaku saat perintah `set-device-owner` dijalankan.
+
+### 7.2 Verifikasi di app
+
+Layar **DAFTAR UJIAN AKTIF** menampilkan status kunci:
+
+- **🔒 KUNCI PENUH AKTIF** → device owner terpasang, Home/Recents/app lain diblokir selama ujian.
+- **⚠ KUNCI TERBATAS — HP belum jadi device owner** → hanya kunci best-effort.
+
+Jadikan ini checklist per tablet sebelum ujian dimulai.
+
+### 7.3 Cara keluar (sesuai permintaan: wajib lewat kode admin)
+
+Selama ujian, `Android.setExamMode(true)` memicu Lock Task Mode. Keluar hanya bisa lewat alur di dalam app:
+
+- ujian selesai normal (`selesaiMengerjakan`), atau
+- **BANTUAN / pintu darurat** + kode dari tab **Kode Unlock** admin, atau
+- `batalUjian()`.
+
+Chrome sudah dimasukkan ke `setLockTaskPackages(admin, [app, com.android.chrome])` supaya Lock Task tetap menahan siswa saat mereka mengerjakan Google Form di Chrome.
+
+### 7.4 Batasan yang masih ada
+
+Custom Tab Chrome menampilkan address bar — di dalam Chrome siswa masih bisa mengetik URL lain. Menutup celah ini butuh **URLBlocklist** lewat managed configuration Chrome (juga butuh device owner).
+
 ## Troubleshooting
 
 | Gejala | Penyebab | Fix |
 |---|---|---|
+| Siswa bisa tekan Home / keluar ke app lain | HP belum device owner | Ikuti bagian 7 |
+| Status kunci tetap "TERBATAS" padahal sudah adb | HP sudah punya akun/device owner saat provisioning | Factory reset, ulangi bagian 7.1 |
 | Tombol BUKA SOAL DI CHROME tidak bereaksi | APK lama (tanpa `Android.openForm`) atau Chrome tidak terpasang | Install APK ≥ 1.7; pastikan Chrome ada di HP |
 | Siswa kembali dari Chrome lalu langsung minta kode admin | `escape_pending` ter-set padahal siswa sengaja ke Chrome | Pastikan `formTab` di-set sebelum Custom Tab dibuka (APK ≥ 1.7) |
 | Form di iframe minta login terus | WebView tidak punya sesi Google | Pakai tombol BUKA SOAL DI CHROME, atau matikan syarat login di Form |

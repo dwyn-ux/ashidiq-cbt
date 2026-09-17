@@ -75,6 +75,10 @@ class MainActivity : AppCompatActivity() {
       act.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("escape_pending", false)
     } catch (e: Exception) { false }
 
+    // Dipakai web untuk menampilkan status kunci: device owner = Home/Recents/app lain diblokir penuh
+    @JavascriptInterface
+    fun isDeviceOwner(): Boolean = isOwner()
+
     @JavascriptInterface
     fun clearReentryFlag() {
       try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
