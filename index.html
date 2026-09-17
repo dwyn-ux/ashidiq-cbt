@@ -517,12 +517,24 @@
             <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batalkan sesi & ke daftar</button>
           </div>
         </div>
-        <div id="info-form-chrome" class="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-2 mb-2 text-[11px] font-bold text-blue-700">
-          <i class="fas fa-info-circle mr-1"></i> Kalau Form di bawah minta login Google, klik <b>BUKA SOAL DI CHROME</b>.
+        <div id="siap-buka" style="display:none" class="bg-blue-600 text-white rounded-2xl p-6 mb-2 text-center shadow-xl">
+          <p class="font-black text-lg mb-1">LANGKAH 1/2 — TOKEN BENAR</p>
+          <p class="text-sm mb-1"><span id="siap-nama" class="font-black"></span> — timer <b>BELUM</b> jalan.</p>
+          <p class="text-xs opacity-90 mb-4">1. Klik BUKA SOAL → login Google di Chrome bila diminta (boleh 2FA).<br>2. Setelah soal terbuka & siap diisi, kembali ke sini → klik SOAL SUDAH TERBUKA.</p>
+          <button onclick="bukaFormDiChrome()" class="w-full bg-white text-blue-700 font-black py-4 rounded-xl shadow text-sm transition hover:bg-blue-50"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME</button>
+          <button id="btn-soal-terbuka" onclick="soalTerbuka()" disabled class="mt-2 w-full bg-slate-400 text-white font-black py-4 rounded-xl shadow text-sm transition"><i class="fas fa-lock mr-2"></i> SOAL SUDAH TERBUKA — MULAI TIMER & KUNCI</button>
+          <button onclick="batalUjian()" class="mt-2 text-xs font-bold opacity-80 underline">Batalkan & kembali ke daftar</button>
         </div>
-        <button onclick="bukaFormDiChrome()" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME (AKUN GOOGLE HP)</button>
-        <div class="iframe-wrapper shadow-2xl relative">
-            <iframe id="iframe-soal" src="" allowfullscreen></iframe>
+        <div id="info-form-chrome" style="display:none" class="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-2 mb-2 text-[11px] font-bold text-blue-700">
+          <i class="fas fa-info-circle mr-1"></i> Soal terbuka di <b>Chrome</b>. Kembali ke Chrome untuk mengisi. Selesai & Submit → tekan <b>Back HP</b> → klik tombol hijau di bawah.
+        </div>
+        <button id="btn-buka-ulang" onclick="bukaFormDiChrome()" style="display:none" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME LAGI</button>
+        <div id="area-soal" style="display:none" class="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 text-center">
+          <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fas fa-external-link-alt"></i></div>
+          <p class="font-black text-slate-700 mb-1">SOAL DIKERJAKAN DI CHROME</p>
+          <p class="text-xs text-slate-500 mb-4">Isi & Submit di Chrome. Panel ini untuk timer, status, dan tombol selesai.</p>
+          <button onclick="bukaFormDiChrome()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl text-xs transition"><i class="fas fa-external-link-alt mr-2"></i> BUKA SOAL DI CHROME LAGI</button>
+          <p id="status-chrome" class="text-[11px] font-bold text-slate-400 mt-3">Menunggu kembali dari Chrome...</p>
             <div id="time-blocker">
                 <h1>WAKTU UJIAN HABIS!</h1>
                 <p class="text-white text-xl mt-4 font-bold tracking-widest bg-black/50 px-6 py-2 rounded-full">SCROLL KE BAWAH & KLIK SUBMIT!</p>
@@ -745,17 +757,25 @@
             loadMapelSiswa(res.kelas);
             startCheckingStatus();
             let savedMapel = sessionStorage.getItem('cbt_mapel_aktif');
-            if(savedMapel) { 
-                mapelAktif = savedMapel; 
+            if(savedMapel) {
+                mapelAktif = savedMapel;
                 idUjianAktif = sessionStorage.getItem('cbt_id_ujian'); // ✅ Restore ID ujian
-                document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
-                document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
+                document.getElementById('siswa-tahap-verifikasi').classList.add('hidden');
+                document.getElementById('siswa-tahap-ujian').classList.remove('hidden');
                 document.getElementById('judul-mapel-ujian').innerText = savedMapel;
                 document.getElementById('identitas-ujian').innerText = res.nama + ' (' + res.nis + ' - ' + res.kelas + ')';
-                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal');
-                jalankanTimer();
-                startDeteksiSubmit(); // ✅ Restore deteksi submit
-                paksaFullscreen();
+                // Sudah ada timer = soal pernah dibuka → langsung mode mengerjakan.
+                // Belum ada timer = baru sampai LANGKAH 1/2 → tampilkan panel siap-buka.
+                if(sessionStorage.getItem('cbt_timer_end')) {
+                  document.getElementById('siap-buka').style.display = 'none';
+                  document.getElementById('info-form-chrome').style.display = 'block';
+                  document.getElementById('btn-buka-ulang').style.display = 'block';
+                  document.getElementById('area-soal').style.display = 'block';
+                  jalankanTimer();
+                  paksaFullscreen();
+                } else {
+                  tampilkanSiapBuka(sessionStorage.getItem('cbt_link_soal') || '');
+                }
             }
         }
     }
@@ -1314,16 +1334,19 @@
     // WebView dalam app TIDAK punya sesi Google, dan Google memblokir login di WebView
     // (disallowed_useragent) — jadi Form-nya dititipkan ke Chrome. Lock ujian tetap jalan:
     // selama di Chrome, hitungan pelanggaran & re-entry lock dimatikan sementara.
+    // Penampung endTime server sampai siswa menekan "SOAL SUDAH TERBUKA" (timer mulai di situ).
     // =============================================
     let tabFormChrome = false; // true = siswa sedang mengerjakan soal di Chrome
+    let res_linkDurasi = 0;
 
     function bukaFormDiChrome() {
       const url = sessionStorage.getItem('cbt_link_soal') || '';
       if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
+      aktifkanTombolSoalTerbuka();
       if (window.Android && typeof window.Android.openForm === 'function' && window.Android.openForm(url)) {
         tabFormChrome = true;
         const b = document.getElementById('info-form-chrome');
-        if (b) b.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i> Soal terbuka di <b>Chrome</b>. Selesai mengisi & Submit → tekan <b>Back HP</b> untuk kembali ke sini.';
+        if (b) { b.style.display = 'block'; b.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i> Soal terbuka di <b>Chrome</b>. Selesai mengisi & Submit → tekan <b>Back HP</b> untuk kembali ke sini.'; }
         return;
       }
       // Browser biasa / APK lama: tab baru, fallback navigasi penuh bila popup diblokir
@@ -1331,6 +1354,41 @@
       try { w = window.open(url, '_blank'); } catch(e) { w = null; }
       if (w) { try { w.opener = null; } catch(e) {} }
       else window.location.href = url;
+    }
+    function tampilkanSiapBuka(link) {
+      sessionStorage.setItem('cbt_link_soal', link);
+      document.getElementById('siap-nama').innerText = (mapelAktif || '') + ' — ' + ((sessionUser && sessionUser.nama) || '');
+      document.getElementById('siap-buka').style.display = 'block';
+      document.getElementById('info-form-chrome').style.display = 'none';
+      document.getElementById('btn-buka-ulang').style.display = 'none';
+      document.getElementById('area-soal').style.display = 'none';
+      nonaktifkanTombolSoalTerbuka();
+    }
+    function aktifkanTombolSoalTerbuka() {
+      const b = document.getElementById('btn-soal-terbuka');
+      if (!b) return;
+      b.disabled = false;
+      b.className = 'mt-2 w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow text-sm transition';
+    }
+    function nonaktifkanTombolSoalTerbuka() {
+      const b = document.getElementById('btn-soal-terbuka');
+      if (!b) return;
+      b.disabled = true;
+      b.className = 'mt-2 w-full bg-slate-400 text-white font-black py-4 rounded-xl shadow text-sm transition';
+    }
+    function soalTerbuka() {
+      const link = sessionStorage.getItem('cbt_link_soal') || '';
+      if(!link) { alert('Link soal belum tersedia.'); return; }
+      if(!confirm('Soal sudah terbuka & siap diisi di Chrome?\n\nTimer MULAI dari sekarang dan tidak bisa dijeda.')) return;
+      document.getElementById('siap-buka').style.display = 'none';
+      document.getElementById('info-form-chrome').style.display = 'block';
+      document.getElementById('btn-buka-ulang').style.display = 'block';
+      document.getElementById('area-soal').style.display = 'block';
+      if(res_linkDurasi) { sessionStorage.setItem('cbt_timer_end', String(res_linkDurasi)); res_linkDurasi = 0; }
+      jalankanTimer();
+      startDeteksiSubmit();
+      try { paksaFullscreen(); } catch(e) {}
+      bukaFormDiChrome();
     }
 
     // Status kunci perangkat: Device Owner = Home/Recents/app lain benar-benar diblokir.
@@ -1354,6 +1412,8 @@
       tabFormChrome = false;
       const b = document.getElementById('info-form-chrome');
       if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Kalau semua jawaban sudah di-Submit, klik tombol <b>SUDAH SUBMIT — SELESAIKAN UJIAN</b> di bawah.';
+      const st = document.getElementById('status-chrome');
+      if (st) st.innerText = 'Kembali dari Chrome. Lanjut isi atau selesaikan ujian.';
       try { paksaFullscreen(); } catch(e) {}
     }
     async function loadMapelSiswa(k) {
@@ -1375,27 +1435,20 @@
           sessionStorage.setItem('cbt_mapel_aktif', res.mapel); 
           sessionStorage.setItem('cbt_id_ujian', id); // ✅ Simpan ID untuk restore
           sessionStorage.setItem('cbt_link_soal', res.link);
+          sessionStorage.removeItem('cbt_timer_end');
 
-          // endTime dari server (LOG_KEHADIRAN), client hanya display
-          if(res.endTime) sessionStorage.setItem('cbt_timer_end', String(res.endTime));
-          else if(!sessionStorage.getItem('cbt_timer_end')) {
-            const durasi = parseInt(res.durasi) || 90;
-            sessionStorage.setItem('cbt_timer_end', String(new Date().getTime() + durasi * 60 * 1000));
-          }
+          // endTime server ditampung dulu — timer BARU jalan saat "SOAL SUDAH TERBUKA" ditekan.
+          if(res.endTime) res_linkDurasi = Number(res.endTime);
+          else { const durasi = parseInt(res.durasi) || 90; res_linkDurasi = new Date().getTime() + durasi * 60 * 1000; }
 
           document.getElementById('siswa-tahap-verifikasi').classList.add('hidden');
           document.getElementById('siswa-tahap-ujian').classList.remove('hidden');
           document.getElementById('judul-mapel-ujian').innerText = res.mapel;
           document.getElementById('identitas-ujian').innerText = sessionUser.nama + ' (' + sessionUser.nis + ' - ' + sessionUser.kelas + ')';
-          document.getElementById('iframe-soal').src = res.link;
-          jalankanTimer();
-          startDeteksiSubmit(); // ✅ Mulai deteksi submit form
           paksaFullscreen();
-          // ✅ Login Google WAJIB → Google Form tidak bisa jalan di iframe WebView (tidak ada sesi Google),
-          // jadi Form langsung dibuka di Chrome. Tombol BUKA SOAL DI CHROME tetap ada untuk buka ulang.
-          if (window.Android && typeof window.Android.openForm === 'function') {
-            setTimeout(() => { try { bukaFormDiChrome(); } catch(e) {} }, 500);
-          }
+          // LANGKAH 1/2 — token benar, timer BELUM jalan. Siswa buka soal di Chrome,
+          // timer + kunci soal baru mulai saat tombol "SOAL SUDAH TERBUKA" ditekan.
+          tampilkanSiapBuka(res.link);
       } else {
         err.innerText = "* " + res.pesan; err.classList.remove('hidden');
         // Kalau ada flag keluar-app saat ujian, coba clear bila sesi lama sudah tidak aktif
@@ -1419,11 +1472,17 @@
       lepasKunciAPK();
       try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
       clearInterval(timerInterval);
+      res_linkDurasi = 0;
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
       sessionStorage.removeItem('cbt_link_soal');
       mapelAktif = null; idUjianAktif = null;
+      document.getElementById('siap-buka').style.display = 'none';
+      document.getElementById('info-form-chrome').style.display = 'none';
+      document.getElementById('btn-buka-ulang').style.display = 'none';
+      document.getElementById('area-soal').style.display = 'none';
+      nonaktifkanTombolSoalTerbuka();
       document.getElementById('siswa-tahap-ujian').classList.add('hidden');
       document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
       if(sessionUser) loadMapelSiswa(sessionUser.kelas);
@@ -1476,51 +1535,15 @@
     // Nilai masuk ke guru via Google Form masing-masing.
     // =============================================
 
-    let deteksiSubmitInterval = null; // legacy GAS, tidak dipakai di mode SQL
-
-    function startDeteksiSubmit() {
-      window.addEventListener('message', onFormMessage);
-      const iframe = document.getElementById('iframe-soal');
-      iframe.addEventListener('load', function() {
-        try {
-          const u = iframe.contentWindow.location.href;
-          if (u.includes('/formResponse') || u.includes('submitted=true')) setTimeout(tampilkanOverlaySelesai, 800);
-        } catch(e) {}
-      });
-    }
-
-    function onFormMessage(e) {
-      try {
-        if(!e.data) return;
-        const d = (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)).toLowerCase();
-        if (d.includes('formresponse') || d.includes('submitted') || d.includes('telah direkam') || d.includes('has been recorded') || d.includes('already responded')) tampilkanOverlaySelesai();
-      } catch(err) {}
-    }
+    function startDeteksiSubmit() {} // noop: soal dikerjakan di Chrome, selesai manual via tombol hijau
 
     function tampilkanOverlaySelesai() {
-      console.log('🎉 tampilkanOverlaySelesai() called');
-      
       // Jangan tampilkan kalau sudah selesai atau belum mulai ujian
       const ujianSection = document.getElementById('siswa-tahap-ujian');
-      if(!ujianSection || ujianSection.classList.contains('hidden')) {
-        console.warn('⚠️ Overlay NOT shown - exam section is hidden');
-        return;
-      }
-      
+      if(!ujianSection || ujianSection.classList.contains('hidden')) return;
       const overlay = document.getElementById('overlay-selesai');
-      if(overlay.style.display === 'flex') {
-        console.warn('⚠️ Overlay already visible - skipping');
-        return;
-      }
-      
-      console.log('✅ Showing overlay "Selesai Mengerjakan"');
+      if(overlay.style.display === 'flex') return;
       overlay.style.display = 'flex';
-
-      // ✅ Stop polling
-      if(deteksiSubmitInterval) {
-        clearInterval(deteksiSubmitInterval);
-        deteksiSubmitInterval = null;
-      }
 
       // Hentikan deteksi violation — siswa sudah submit, wajar kalau fokus kemana-mana
       isExamLocked = false; // Jangan lock lagi
@@ -1541,8 +1564,6 @@
 
       // Bersihkan session ujian
       clearInterval(timerInterval);
-      if(deteksiSubmitInterval) clearInterval(deteksiSubmitInterval); // ✅ Clear polling interval
-      window.removeEventListener('message', onFormMessage);
       tutupPintu();
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
@@ -1775,12 +1796,10 @@
       if(document.visibilityState === 'hidden') recordViolation();
     });
 
-    // blur hanya dihitung kalau bukan karena fokus pindah ke iframe
+    // Soal di Chrome: blur = siswa pindah ke Chrome (wajar, tabFormChrome) atau kabur (pelanggaran).
     window.addEventListener('blur', () => {
-      // Cek apakah fokus pindah ke iframe soal — kalau iya, bukan pelanggaran
       setTimeout(() => {
-        const active = document.activeElement;
-        if(active && active.id === 'iframe-soal') return; // siswa klik di form → aman
+        if(tabFormChrome) return;
         // Kalau dokumen benar-benar tidak visible → sudah ditangani visibilitychange
         // blur tanpa visibilitychange = alt+tab atau minimize di beberapa browser
         if(document.visibilityState === 'visible') recordViolation();
@@ -1808,20 +1827,12 @@
       try { if(window.Android) window.Android.setExamMode(false); } catch(e) {}
     }
 
-    // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
       if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !pintuDarurat && !tabFormChrome) {
-        // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
         setTimeout(() => {
-          const active = document.activeElement;
-          if(active && active.id === 'iframe-soal') {
-            // Siswa masih di form, cukup paksa fullscreen tanpa hitung pelanggaran
-            paksaFullscreen();
-          } else {
-            recordViolation();
-            paksaFullscreen();
-          }
+          recordViolation();
+          paksaFullscreen();
         }, 300);
       }
     });
