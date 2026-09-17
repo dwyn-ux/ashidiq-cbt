@@ -1285,7 +1285,12 @@
 
     let googleSiap = false;
     try { googleSiap = sessionStorage.getItem('cbt_google_siap') === '1'; } catch(e) {}
-    function bukaLoginGoogle() { window.open('https://myaccount.google.com/', '_blank', 'noopener'); }
+    function bukaLoginGoogle() {
+      var url = 'https://accounts.google.com/ServiceLogin?continue=https://docs.google.com/';
+      var w = null;
+      try { w = window.open(url, '_blank', 'noopener'); } catch(e) { w = null; }
+      if(!w) window.location.href = url;
+    }
     function toggleGoogle(v) {
       googleSiap = !!v;
       try { sessionStorage.setItem('cbt_google_siap', googleSiap ? '1' : '0'); } catch(e) {}
