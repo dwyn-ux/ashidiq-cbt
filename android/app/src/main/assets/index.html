@@ -237,16 +237,32 @@
         <!-- TAB DATA UJIAN — ✅ Kolom Nilai ditambah -->
         <div id="tab-data-ujian" class="admin-tab-content">
           <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Data Ujian (Mapel)</h2>
-          <div class="flex justify-between items-center mb-4">
-             <div class="flex gap-2">
+          <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 mb-4">
+             <div class="flex flex-wrap gap-2">
                  <button onclick="loadDataUjian()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Muat Ulang</button>
                  <button id="btn-auto-token" onclick="bulkGenerate('generateAllTokens')" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-purple-700 transition"><i class="fas fa-ticket-alt mr-1"></i> Auto Generate Token Kosong</button>
              </div>
-             <select id="filter-mapel" onchange="loadDataUjian()" class="bg-white border border-slate-200 px-4 py-2 rounded-lg font-bold text-sm text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
-                 <option value="aktif">🟢 Tampilkan Aktif Saja</option>
-                 <option value="semua">✅ Tampilkan Semua Ujian</option>
-             </select>
+             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
+               <label class="relative block sm:min-w-64">
+                 <span class="sr-only">Cari data mapel</span>
+                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                 <input id="search-mapel" type="search" oninput="renderDataUjian()" placeholder="Cari mapel, kelas, ID, token..." class="w-full bg-white border border-slate-200 pl-9 pr-3 py-2 rounded-lg font-bold text-sm text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+               </label>
+               <select id="filter-mapel" onchange="renderDataUjian()" aria-label="Filter status mapel" class="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg font-bold text-sm text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
+                   <option value="aktif">Aktif Saja</option>
+                   <option value="semua">Semua Ujian</option>
+               </select>
+               <select id="sort-mapel" onchange="renderDataUjian()" aria-label="Urutkan data mapel" class="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg font-bold text-sm text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
+                   <option value="jadwal-desc">Jadwal Terbaru</option>
+                   <option value="jadwal-asc">Jadwal Terlama</option>
+                   <option value="mapel-asc">Mapel A-Z</option>
+                   <option value="mapel-desc">Mapel Z-A</option>
+                   <option value="id-asc">ID A-Z</option>
+                   <option value="id-desc">ID Z-A</option>
+               </select>
+             </div>
           </div>
+          <p id="mapel-result-count" class="text-xs font-bold text-slate-400 mb-2" aria-live="polite"></p>
           <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
             <table class="w-full text-sm text-left">
               <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b">
@@ -882,18 +898,48 @@
       document.getElementById('table-santri-body').innerHTML = html;
     }
 
-    // ✅ loadDataUjian — tambah kolom Nilai dengan tombol per baris
+    let dataUjianCache = [];
+    let dataUjianError = '';
+
     async function loadDataUjian() {
       const tbody = document.getElementById('table-ujian-body');
       tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat...</td></tr>';
-      const res = await callAPI({ action: 'getAllMapel' }); 
+      const count = document.getElementById('mapel-result-count');
+      if(count) count.innerText = 'Memuat data mapel...';
+      const res = await callAPI({ action: 'getAllMapel' });
+      dataUjianCache = Array.isArray(res) ? res : [];
+      dataUjianError = (!Array.isArray(res) && res && res.pesan) ? res.pesan : '';
+      renderDataUjian();
+    }
+
+    function renderDataUjian() {
+      const tbody = document.getElementById('table-ujian-body');
+      if(!tbody) return;
       let html = '';
       const filterType = document.getElementById('filter-mapel').value;
-      // Guard: res harus array
-      if(Array.isArray(res) && res.length > 0) {
-          res.forEach(m => {
+      const sortType = document.getElementById('sort-mapel').value;
+      const query = (document.getElementById('search-mapel').value || '').trim().toLocaleLowerCase('id-ID');
+      let rows = dataUjianCache.filter(m => {
+        if(filterType === 'aktif' && m.status !== 'Aktif') return false;
+        if(!query) return true;
+        return [m.id, m.mapel, m.kelas, m.token, m.status, m.tgl, m.mulai, m.selesai]
+          .some(v => String(v == null ? '' : v).toLocaleLowerCase('id-ID').includes(query));
+      });
+      const compareText = (a, b) => String(a == null ? '' : a).localeCompare(String(b == null ? '' : b), 'id', { numeric: true, sensitivity: 'base' });
+      const jadwalKey = m => String(m.tgl || '') + ' ' + String(m.mulai || '');
+      rows.sort((a, b) => {
+        if(sortType === 'jadwal-asc') return compareText(jadwalKey(a), jadwalKey(b));
+        if(sortType === 'mapel-asc') return compareText(a.mapel, b.mapel);
+        if(sortType === 'mapel-desc') return compareText(b.mapel, a.mapel);
+        if(sortType === 'id-asc') return compareText(a.id, b.id);
+        if(sortType === 'id-desc') return compareText(b.id, a.id);
+        return compareText(jadwalKey(b), jadwalKey(a));
+      });
+      const count = document.getElementById('mapel-result-count');
+      if(count) count.innerText = `${rows.length} dari ${dataUjianCache.length} mapel ditampilkan`;
+      if(rows.length > 0) {
+          rows.forEach(m => {
             try {
-              if(filterType === 'aktif' && m.status !== 'Aktif') return; 
               let warnStatus = m.status == 'Aktif' ? 'text-blue-600' : 'text-slate-400';
               // ✅ Konversi semua ke string dulu supaya .replace tidak error kalau angka
               let mapelStr = (m.mapel != null ? m.mapel : '').toString();
@@ -920,11 +966,10 @@
               console.error('Error render baris mapel:', rowErr, m);
             }
           });
-      } else if(res && res.pesan) {
-        // Backend error
-        html = `<tr><td colspan="7" class="p-6 text-center text-red-400 font-bold">Error: ${esc(res.pesan)}</td></tr>`;
+      } else if(dataUjianError) {
+        html = `<tr><td colspan="7" class="p-6 text-center text-red-400 font-bold">Error: ${esc(dataUjianError)}</td></tr>`;
       }
-      tbody.innerHTML = html || '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada mapel yang aktif saat ini.</td></tr>';
+      tbody.innerHTML = html || '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada data yang cocok dengan pencarian atau filter.</td></tr>';
     }
 
     function warnLink(msg, ok) {
