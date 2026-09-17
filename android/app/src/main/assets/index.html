@@ -52,13 +52,13 @@
   <section id="view-login" class="view-section active min-h-screen items-center justify-center bg-slate-900 bg-[url('https://images.unsplash.com/photo-1555116505-38ab61800975?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center bg-blend-overlay">
     <div class="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-white/20">
       <div class="text-center mb-6">
-        <img src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo Sekolah" class="w-24 mx-auto mb-3 drop-shadow-lg">
+        <img id="login-logo" src="https://smpmuashidiq.sch.id/assets/logo%20smp.png" alt="Logo Sekolah" class="w-24 mx-auto mb-3 drop-shadow-lg" style="cursor:default" onclick="ketukLogo()">
         <h1 class="text-2xl font-bold text-slate-800">CBT Ashidiq</h1>
         <p class="text-slate-500 text-sm font-medium">Portal Ujian Terpadu</p>
       </div>
-      <div class="flex p-1 bg-slate-100 rounded-lg mb-6">
+      <div id="login-role-tabs" class="flex p-1 bg-slate-100 rounded-lg mb-6">
         <button id="tab-siswa" onclick="setLoginRole('siswa')" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600 transition">Santri</button>
-        <button id="tab-admin" onclick="setLoginRole('admin')" class="flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition">Admin / Proktor</button>
+        <button id="tab-admin" onclick="setLoginRole('admin')" style="display:none" class="flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition">Admin / Proktor</button>
       </div>
       <div class="space-y-4">
         <div>
@@ -327,9 +327,9 @@
               <div class="grid grid-cols-2 gap-4">
                 <input type="text" id="inp-idujian" class="w-full p-3 border rounded-xl uppercase" placeholder="ID Ujian">
                 <div>
-                  <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (Pisahkan dengan koma)</label>
-                  <input type="text" id="inp-kelastarget" class="w-full p-3 border rounded-xl uppercase" placeholder="Contoh: 7A,7B,8A atau 7,8,9">
-                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
+                  <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (PILIH, BISA BANYAK)</label>
+                  <div id="inp-kelastarget-list" class="w-full p-3 border rounded-xl bg-slate-50 max-h-32 overflow-y-auto space-y-1 text-sm font-bold text-slate-600"><p class="text-xs text-slate-400">Memuat daftar kelas...</p></div>
+                  <p class="text-[9px] text-blue-500 mt-1 font-bold">💡 Daftar dari data santri. Centang SEMUA untuk semua kelas.</p>
                 </div>
               </div>
               <input type="text" id="inp-namamapel" class="w-full p-3 border rounded-xl" placeholder="Nama Mata Pelajaran">
@@ -350,13 +350,13 @@
             </div>
           </div>
           <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl mt-6">
-            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-csv text-green-600 mr-2"></i>Bulk Mapel (CSV)</h3>
-            <p class="text-xs text-slate-500 mb-3">Header: <code class="bg-slate-100 px-1 rounded font-mono">id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi</code>. Token kosong = auto-generate. ID duplikat = update. Tanggal YYYY-MM-DD, jam HH:MM.</p>
+            <h3 class="font-bold text-slate-700 mb-2"><i class="fas fa-file-excel text-green-600 mr-2"></i>Bulk Mapel (Excel)</h3>
+            <p class="text-xs text-slate-500 mb-3">Kolom: <code class="bg-slate-100 px-1 rounded font-mono">id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi</code>. <b>kelas_1..3 wajib pilih dari dropdown</b> (daftar dari data santri, XI/11 otomatis sama). Isi <b>SEMUA</b> di kelas_1 untuk semua kelas. Token kosong = auto-generate. ID duplikat = update.</p>
             <div class="flex gap-2 mb-3">
-              <button onclick="unduhTemplate('mapel')" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template CSV</button>
-              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File<input type="file" id="file-bulk-mapel" accept=".csv,.txt" class="hidden" onchange="bacaFileBulk('mapel')"></label>
+              <button onclick="unduhTemplate('mapel')" id="btn-tpl-mapel" class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition"><i class="fas fa-download mr-1"></i> Template Excel</button>
+              <label class="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"><i class="fas fa-upload mr-1"></i> Pilih File (.xls/.csv)<input type="file" id="file-bulk-mapel" accept=".xls,.xlsx,.csv,.txt" class="hidden" onchange="bacaFileBulk('mapel')"></label>
             </div>
-            <textarea id="bulk-mapel" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi&#10;UJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90"></textarea>
+            <textarea id="bulk-mapel" rows="6" class="w-full p-3 border rounded-xl font-mono text-xs outline-none focus:ring-2" placeholder="id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi&#10;UJ-01,Matematika,11A,11B,,A1B2C,Aktif,2026-09-15,07:30,09:00,90"></textarea>
             <button onclick="kirimBulk('mapel')" id="btn-bulk-mapel" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg mt-3 transition hover:bg-green-700">UPLOAD BULK</button>
           </div>
         </div>
@@ -368,11 +368,11 @@
           <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 mb-6 flex gap-3 items-start">
             <i class="fas fa-info-circle text-blue-500 text-xl shrink-0 mt-0.5"></i>
             <div class="text-sm text-blue-800">
-              <p class="font-bold mb-1">Mode manual (SQL):</p>
+              <p class="font-bold mb-1">Cara pakai (guru cukup tempel link biasa):</p>
               <ul class="list-disc list-inside space-y-1 text-xs">
-                <li>Guru buat Google Form dari akun masing-masing, nilai masuk ke guru via Form tersebut.</li>
-                <li>Form wajib punya 3 field: <b>NIS</b>, <b>NAMA LENGKAP</b>, <b>KELAS</b>.</li>
-                <li>Tempel URL Form di bawah (boleh pakai placeholder <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NIS</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NAMA</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_KELAS</code> untuk prefill otomatis).</li>
+                <li>Guru buat Google Form, 4 soal pertama wajib berjudul <b>NIS</b>, <b>NAMA</b>, <b>KELAS</b>, <b>MAPEL</b> (teks pendek, wajib isi).</li>
+                <li>Tempel link <code class="bg-blue-100 px-1 rounded font-mono">.../viewform</code> biasa di bawah, klik <b>Deteksi Otomatis</b>, lalu Simpan.</li>
+                <li>Siswa login (NIS+password) lalu MULAI — NIS/Nama/Kelas/Mapel terisi sendiri di Form. Siswa tetap klik Submit sendiri.</li>
               </ul>
             </div>
           </div>
@@ -381,12 +381,23 @@
             <h3 class="font-bold text-slate-700 mb-4"><i class="fas fa-link text-blue-500 mr-2"></i> Tautkan Form ke Ujian</h3>
             <div class="space-y-4">
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">ID UJIAN</label>
-                <input type="text" id="linkform-id" placeholder="ID Ujian (Cth: UJ-01)" class="w-full p-3 border rounded-xl uppercase font-bold outline-none">
+                <label class="text-[10px] font-bold text-slate-400 ml-1">PILIH UJIAN / MAPEL</label>
+                <select id="linkform-id" onchange="onLinkFormChange()" class="w-full p-3 border rounded-xl font-bold outline-none bg-white"><option value="">Memuat daftar ujian...</option></select>
               </div>
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM</label>
+                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM (LINK BIASA)</label>
                 <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/..." class="w-full p-3 border rounded-xl outline-none text-sm">
+              </div>
+              <div id="linkform-warn" class="hidden text-xs font-bold rounded-xl p-3"></div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="entry-nis" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NAMA</label><input type="text" id="entry-nama" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY KELAS</label><input type="text" id="entry-kelas" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY MAPEL (OPSIONAL)</label><input type="text" id="entry-mapel" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="deteksiEntry()" id="btn-detect" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-xl font-bold shadow transition hover:bg-purple-700"><i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS</button>
+                <button onclick="previewPrefill()" class="flex-1 bg-slate-100 border px-4 py-3 rounded-xl font-bold text-slate-600 transition hover:bg-slate-200"><i class="fas fa-eye mr-2"></i> PREVIEW</button>
               </div>
               <button onclick="simpanLinkForm()" id="btn-linkform" class="w-full bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition hover:bg-blue-700"><i class="fas fa-save mr-2"></i> SIMPAN LINK</button>
             </div>
@@ -477,14 +488,29 @@
         <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
           <div class="flex items-center gap-4">
              <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
-             <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian">MAPEL</h2>
-             <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
+              <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
+              <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
           </div>
           <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
              <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
           </div>
         </div>
 
+        <div id="auth-banner" style="display:none" class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-2">
+          <p class="font-black text-amber-700 text-sm mb-1">🔓 MODE PERSIAPAN — kunci belum aktif</p>
+          <p class="text-xs text-amber-600 mb-3">Login Gmail & verifikasi 2 langkah dulu (boleh buka SMS/aplikasi lain). Timer tetap jalan. Setelah soal terbuka tanpa diminta login, klik KUNCI UJIAN.</p>
+          <div class="flex gap-2">
+            <button onclick="kunciUjian()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl text-sm transition"><i class="fas fa-lock mr-1"></i> SOAL TERBUKA — KUNCI UJIAN</button>
+            <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batal</button>
+          </div>
+        </div>
+        <div id="pintu-banner" style="display:none" class="bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 mb-2">
+          <p class="font-black text-purple-700 text-sm mb-1">🚪 PINTU DARURAT TERBUKA (<span id="pintu-sisa">120</span>d) — tombol Back HP aktif</p>
+          <div class="flex gap-2 mt-2">
+            <button onclick="kunciLagi()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-black py-3 rounded-xl text-sm transition"><i class="fas fa-lock mr-1"></i> KUNCI LAGI</button>
+            <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batalkan sesi & ke daftar</button>
+          </div>
+        </div>
         <div class="iframe-wrapper shadow-2xl relative">
             <iframe id="iframe-soal" src="" allowfullscreen></iframe>
             <div id="time-blocker">
@@ -529,12 +555,11 @@
              <label class="text-[10px] font-bold text-slate-400 ml-1">NAMA MATA PELAJARAN</label>
              <input type="text" id="edit-namamapel" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50" placeholder="Nama Mata Pelajaran">
            </div>
-           <!-- Kelas Target -->
-           <div>
-             <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (pisah koma)</label>
-             <input type="text" id="edit-kelas" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 uppercase" placeholder="Contoh: 7,8,9 atau 7A,7B">
-             <p class="text-[9px] text-blue-500 mt-1 font-bold ml-1">💡 Bisa tulis: 7,8,9 atau 7A,7B,8A</p>
-           </div>
+            <!-- Kelas Target -->
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">KELAS TARGET (PILIH, BISA BANYAK)</label>
+              <div id="edit-kelas-list" class="w-full p-3 border rounded-xl bg-slate-50 max-h-32 overflow-y-auto space-y-1 text-sm font-bold text-slate-600"><p class="text-xs text-slate-400">Memuat daftar kelas...</p></div>
+            </div>
            <!-- Tanggal -->
            <div><label class="text-[10px] font-bold text-slate-400 ml-1">TANGGAL UJIAN</label><input type="date" id="edit-tgl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50"></div>
            <!-- Jam -->
@@ -560,10 +585,16 @@
                 <button onclick="magicCode('edit-token', 5)" class="bg-slate-100 px-3 rounded-xl border hover:bg-slate-200 shrink-0"><i class="fas fa-ticket-alt"></i></button>
               </div>
             </div>
-            <!-- Link Google Form manual -->
+            <!-- Link Google Form + entry IDs -->
             <div>
-              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM</label>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM (LINK BIASA)</label>
               <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/...">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="edit-enis" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NAMA</label><input type="text" id="edit-enama" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY KELAS</label><input type="text" id="edit-ekelas" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY MAPEL</label><input type="text" id="edit-emapel" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="opsional"></div>
             </div>
            <button id="btn-simpan-edit" onclick="simpanEditMapel()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black mt-2 shadow-lg hover:bg-blue-700 transition tracking-wider">SIMPAN PERUBAHAN</button>
         </div>
@@ -642,14 +673,35 @@
       if(id === 'tab-data-santri') loadDataSantri();
       if(id === 'tab-data-ujian') loadDataUjian();
       if(id === 'tab-dokumen') loadDataDokumen();
+      if(id === 'tab-input-mapel') loadKelasChecklists();
+      if(id === 'tab-generate') loadLinkFormList();
       if(id === 'tab-unlock-codes') { loadViolationSetting(); }
     }
 
-    function setLoginRole(r) { 
-        currentRole = r; 
+    function setLoginRole(r) {
+        if (r === 'admin' && document.getElementById('tab-admin').style.display === 'none') return;
+        currentRole = r;
         document.getElementById('label-user').innerText = r == 'siswa' ? 'Nomor Induk Siswa (NIS)' : 'Username Admin / Proktor';
-        document.getElementById('tab-siswa').className = r == 'siswa' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
-        document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500'; 
+        document.getElementById('tab-siswa').className = r == 'siswa' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500';
+        document.getElementById('tab-admin').className = r == 'admin' ? 'flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600' : 'flex-1 py-2 text-sm font-bold text-slate-500';
+    }
+    let ketukLog = [];
+    function ketukLogo() {
+        const now = Date.now();
+        ketukLog = ketukLog.filter(t => now - t < 3000);
+        ketukLog.push(now);
+        if (ketukLog.length >= 5) {
+            ketukLog = [];
+            document.getElementById('tab-admin').style.display = '';
+            setLoginRole('admin');
+        }
+    }
+    function sembunyiAdmin() {
+        currentRole = 'siswa';
+        document.getElementById('tab-admin').style.display = 'none';
+        setLoginRole('siswa');
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
     }
 
     function renderSession(res) {
@@ -662,7 +714,9 @@
                 document.getElementById('btn-auto-pass').style.display = 'none'; 
                 document.getElementById('btn-auto-token').style.display = 'none'; 
             }
-            switchView('view-admin'); 
+            switchView('view-admin');
+            loadKelasChecklists();
+            loadLinkFormList();
             switchAdminTab('tab-monitoring'); 
         } else { 
             document.getElementById('siswa-nama').innerText = res.nama; 
@@ -679,16 +733,18 @@
                 document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
                 document.getElementById('judul-mapel-ujian').innerText = savedMapel;
                 document.getElementById('identitas-ujian').innerText = res.nama + ' (' + res.nis + ' - ' + res.kelas + ')';
-                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal'); 
-                jalankanTimer(); 
+                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal');
+                jalankanTimer();
                 startDeteksiSubmit(); // ✅ Restore deteksi submit
-                paksaFullscreen();
+                if(sessionStorage.getItem('cbt_mode_persiapan') === '1') masukModePersiapan();
+                else paksaFullscreen();
             }
         }
     }
 
     window.onload = function() {
       loadChecklist();
+      sembunyiAdmin();
       const saved = sessionStorage.getItem('cbt_session');
       if(saved) { try { renderSession(JSON.parse(saved)); } catch(e) {} }
     };
@@ -713,6 +769,7 @@
         try { await callAPI({ action: 'logout' }); } catch(e) {}
         lepasKunciAPK();
         sessionStorage.clear(); sessionUser = null; switchView('view-login');
+        sembunyiAdmin();
     }
 
     // =============================================
@@ -777,7 +834,7 @@
               let kelasStr = (m.kelas != null ? m.kelas : '').toString();
               let tokenStr = (m.token != null ? m.token : '').toString();
               let btnEdit = (sessionUser && sessionUser.role === 'admin') ?
-                  `<button onclick="bukaEditMapel('${jsq(m.id)}','${jsq(m.tgl)}','${jsq(m.mulai)}','${jsq(m.selesai)}','${jsq(m.status)}',${m.durasi},'${jsq(mapelStr)}','${jsq(kelasStr)}','${jsq(tokenStr)}','${jsq(m.form_url||'')}')" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold hover:bg-amber-600 transition uppercase tracking-wider"><i class="fas fa-edit"></i> Edit</button>` :
+                  `<button onclick="bukaEditMapel('${jsq(m.id)}','${jsq(m.tgl)}','${jsq(m.mulai)}','${jsq(m.selesai)}','${jsq(m.status)}',${m.durasi},'${jsq(mapelStr)}','${jsq(kelasStr)}','${jsq(tokenStr)}','${jsq(m.form_url||'')}','${jsq(m.entry_nis||'')}','${jsq(m.entry_nama||'')}','${jsq(m.entry_kelas||'')}','${jsq(m.entry_mapel||'')}')" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold hover:bg-amber-600 transition uppercase tracking-wider"><i class="fas fa-edit"></i> Edit</button>` :
                   `<span class="text-[10px] text-slate-400 font-bold bg-slate-100 px-3 py-1 rounded">Locked</span>`;
 
               let btnNilai = m.form_url
@@ -804,24 +861,135 @@
       tbody.innerHTML = html || '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada mapel yang aktif saat ini.</td></tr>';
     }
 
-    // Mode SQL manual: nilai di Google Form guru, tidak ada rekap pusat.
-    async function simpanLinkForm() {
-      const id = document.getElementById('linkform-id').value.trim().toUpperCase();
+    function warnLink(msg, ok) {
+      const w = document.getElementById('linkform-warn');
+      if(!w) return;
+      if(!msg) { w.classList.add('hidden'); return; }
+      w.classList.remove('hidden');
+      w.className = 'text-xs font-bold rounded-xl p-3 ' + (ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200');
+      w.innerText = msg;
+    }
+    let cachedMapelList = null;
+    async function loadLinkFormList() {
+      const sel = document.getElementById('linkform-id');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Memuat daftar ujian...</option>';
+      const res = await callAPI({ action: 'getAllMapel' });
+      if (!Array.isArray(res)) { sel.innerHTML = '<option value="">Gagal memuat (' + esc(res.pesan || 'error') + ')</option>'; return; }
+      cachedMapelList = res;
+      sel.innerHTML = '<option value="">-- Pilih ujian --</option>' + res.map(m => `<option value="${esc(m.id)}">${esc(m.id)} — ${esc(m.mapel)} (Kelas: ${esc(m.kelas)}) [${esc(m.status)}]${m.form_url ? ' ✅' : ''}</option>`).join('');
+      if (cur) sel.value = cur;
+      if (sel.value) onLinkFormChange();
+    }
+    function onLinkFormChange() {
+      const id = document.getElementById('linkform-id').value;
+      const m = (cachedMapelList || []).find(x => String(x.id) === String(id));
+      document.getElementById('linkform-url').value = (m && m.form_url) || '';
+      document.getElementById('entry-nis').value = (m && m.entry_nis) || '';
+      document.getElementById('entry-nama').value = (m && m.entry_nama) || '';
+      document.getElementById('entry-kelas').value = (m && m.entry_kelas) || '';
+      document.getElementById('entry-mapel').value = (m && m.entry_mapel) || '';
+      warnLink(m && m.form_url ? 'Link tersimpan dimuat. Ganti URL bila perlu, lalu Simpan.' : '', true);
+    }
+    function entryVals() {
+      return {
+        entryNis: document.getElementById('entry-nis').value.trim(),
+        entryNama: document.getElementById('entry-nama').value.trim(),
+        entryKelas: document.getElementById('entry-kelas').value.trim(),
+        entryMapel: document.getElementById('entry-mapel').value.trim()
+      };
+    }
+    function validEntry(v) { return v === '' || /^\d{4,12}$/.test(v); }
+    async function deteksiEntry() {
+      const id = document.getElementById('linkform-id').value;
+      if(!id) return alert('Pilih ujian dulu.');
+      const btn = document.getElementById('btn-detect');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...'; btn.disabled = true;
+      const res = await callAPI({ action: 'detectFormEntries', idUjian: id });
+      btn.innerHTML = '<i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS'; btn.disabled = false;
+      if(!res.sukses) { warnLink(res.pesan || 'Deteksi gagal. Isi entry ID manual.', false); return; }
+      const e = res.entries || {};
+      document.getElementById('entry-nis').value = e.entry_nis || '';
+      document.getElementById('entry-nama').value = e.entry_nama || '';
+      document.getElementById('entry-kelas').value = e.entry_kelas || '';
+      document.getElementById('entry-mapel').value = e.entry_mapel || '';
+      const n = ['entry_nis','entry_nama','entry_kelas','entry_mapel'].filter(k => e[k]).length;
+      warnLink(n >= 3 ? 'Deteksi dapat ' + n + '/4 kolom. Cek lalu klik SIMPAN LINK.' : 'Hanya dapat ' + n + '/4 kolom. Pastikan judul soal mengandung NIS, NAMA, KELAS, MAPEL.', n >= 3);
+    }
+    function previewPrefill() {
       const url = document.getElementById('linkform-url').value.trim();
-      if(!id || !url) return alert('Isi ID ujian dan URL Form!');
-      if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('URL harus Google Form (https://docs.google.com/forms/...)!');
+      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('Tempel URL Google Form dulu (docs.google.com atau forms.gle)!');
+      const e = entryVals();
+      for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
+      const q = [];
+      if(e.entryNis) q.push('entry.' + e.entryNis + '=CONTOH_NIS');
+      if(e.entryNama) q.push('entry.' + e.entryNama + '=Contoh+Nama');
+      if(e.entryKelas) q.push('entry.' + e.entryKelas + '=7A');
+      if(e.entryMapel) q.push('entry.' + e.entryMapel + '=Matematika');
+      const base = url.split('?')[0];
+      window.open(base + (q.length ? (base.indexOf('?') < 0 ? '?' : '&') + 'usp=pp_url&' + q.join('&') : ''), '_blank', 'noopener');
+    }
+    async function simpanLinkForm() {
+      const id = document.getElementById('linkform-id').value;
+      const url = document.getElementById('linkform-url').value.trim();
+      if(!id) return alert('Pilih ujian dulu!');
+      if(!url) return alert('Isi URL Form!');
+      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('URL harus Google Form (docs.google.com/forms/... atau forms.gle)!');
+      const e = entryVals();
+      for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
+      if(url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
+        if(!confirm('Entry ID masih kosong — Form akan terbuka TANPA prefill. Tetap simpan?')) return;
+      }
       const btn = document.getElementById('btn-linkform');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
-      const res = await callAPI({ action: 'setFormUrl', idUjian: id, formUrl: url });
-      alert(res.pesan); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
-      if(res.sukses) { document.getElementById("linkform-id").value = ""; document.getElementById("linkform-url").value = ""; }
+      const res = await callAPI(Object.assign({ action: 'setFormUrl', idUjian: id, formUrl: url }, e));
+      alert(res.pesan || 'Tersimpan.'); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
+      if(res.sukses) warnLink(res.pesan, true);
     }
 
-    function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl) {
+    let cachedKelasList = null;
+    async function fetchKelasList() {
+        if (cachedKelasList) return cachedKelasList;
+        const res = await callAPI({ action: 'getKelasList' });
+        cachedKelasList = (res.sukses && Array.isArray(res.kelas)) ? res.kelas.slice().sort() : [];
+        return cachedKelasList;
+    }
+    function renderKelasChecklist(elId, selected) {
+        const el = document.getElementById(elId);
+        const sel = new Set((selected || '').split(',').map(s => normKelasJS(s)).filter(Boolean));
+        return fetchKelasList().then(list => {
+            const opts = ['SEMUA'].concat(list);
+            if (!opts.length || (opts.length === 1)) { el.innerHTML = '<p class="text-xs text-slate-400">Belum ada data santri. Input santri dulu.</p>'; return; }
+            el.innerHTML = opts.map(k => `<label class="flex items-center gap-2 cursor-pointer hover:bg-white rounded px-1 py-0.5"><input type="checkbox" value="${esc(k)}" ${sel.has(k) ? 'checked' : ''} ${k === 'SEMUA' ? 'data-semua="1"' : ''} class="w-4 h-4 rounded text-blue-600" onchange="onKelasCheck('${elId}')"> ${esc(k)}</label>`).join('');
+        }).catch(() => { el.innerHTML = '<p class="text-xs text-red-400">Gagal memuat daftar kelas.</p>'; });
+    }
+    function onKelasCheck(elId) {
+        const el = document.getElementById(elId);
+        const boxes = Array.from(el.querySelectorAll('input[type=checkbox]'));
+        const semua = boxes.find(b => b.dataset.semua);
+        if (semua && semua.checked) boxes.forEach(b => { if (b !== semua) { b.checked = false; b.disabled = true; } });
+        else boxes.forEach(b => { b.disabled = false; });
+    }
+    function bacaKelasChecklist(elId) {
+        const el = document.getElementById(elId);
+        const vals = Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(b => b.value);
+        if (vals.includes('SEMUA')) return 'SEMUA';
+        return vals.join(',');
+    }
+    async function loadKelasChecklists() {
+        await renderKelasChecklist('inp-kelastarget-list', '');
+        const eid = document.getElementById('edit-id').value;
+        if (eid) {
+            const cur = document.getElementById('edit-kelas-list').dataset.cur || '';
+            await renderKelasChecklist('edit-kelas-list', cur);
+        }
+    }
+    function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl, enis, enama, ekelas, emapel) {
         document.getElementById('edit-id').value        = id;
         document.getElementById('edit-id-text').innerText = id;
         document.getElementById('edit-namamapel').value = mapel  || '';
-        document.getElementById('edit-kelas').value     = kelas  || '';
+        document.getElementById('edit-kelas-list').dataset.cur = kelas || '';
+        renderKelasChecklist('edit-kelas-list', kelas || '');
         document.getElementById('edit-tgl').value       = tgl    || '';
         document.getElementById('edit-mulai').value     = mulai  || '';
         document.getElementById('edit-selesai').value   = selesai || '';
@@ -829,25 +997,34 @@
         document.getElementById('edit-durasi').value    = durasi || 90;
         document.getElementById('edit-token').value     = token  || '';
         document.getElementById('edit-formurl').value   = formUrl || '';
+        document.getElementById('edit-enis').value      = enis   || '';
+        document.getElementById('edit-enama').value     = enama  || '';
+        document.getElementById('edit-ekelas').value    = ekelas || '';
+        document.getElementById('edit-emapel').value    = emapel || '';
         document.getElementById('modal-edit-mapel').classList.remove('hidden');
     }
 
     async function simpanEditMapel() {
         const btn = document.getElementById('btn-simpan-edit'); 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
-        const payload = { 
-          action:    'editMapel', 
+        const payload = {
+          action:    'editMapel',
           id:        document.getElementById('edit-id').value,
           mapel:     document.getElementById('edit-namamapel').value,
-          kelas:     document.getElementById('edit-kelas').value,
-          tgl:       document.getElementById('edit-tgl').value, 
-          mulai:     document.getElementById('edit-mulai').value, 
-          selesai:   document.getElementById('edit-selesai').value, 
-          status:    document.getElementById('edit-status').value, 
+          kelas:     bacaKelasChecklist('edit-kelas-list'),
+          tgl:       document.getElementById('edit-tgl').value,
+          mulai:     document.getElementById('edit-mulai').value,
+          selesai:   document.getElementById('edit-selesai').value,
+          status:    document.getElementById('edit-status').value,
           durasi:    document.getElementById('edit-durasi').value,
           examToken: document.getElementById('edit-token').value,
-          formUrl:   document.getElementById('edit-formurl').value
+          formUrl:   document.getElementById('edit-formurl').value,
+          entryNis:   document.getElementById('edit-enis').value.trim(),
+          entryNama:  document.getElementById('edit-enama').value.trim(),
+          entryKelas: document.getElementById('edit-ekelas').value.trim(),
+          entryMapel: document.getElementById('edit-emapel').value.trim()
         };
+        if(!payload.kelas) { alert('Pilih minimal 1 kelas target!'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
         const res = await callAPI(payload);
         alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
         if(res.sukses) { document.getElementById('modal-edit-mapel').classList.add('hidden'); loadDataUjian(); }
@@ -870,7 +1047,7 @@
             data = [
                 document.getElementById('inp-idujian').value,
                 document.getElementById('inp-namamapel').value,
-                document.getElementById('inp-kelastarget').value,  // ✅ Tetap satu string "11A,11B"
+                bacaKelasChecklist('inp-kelastarget-list'),
                 document.getElementById('inp-token').value,
                 document.getElementById('inp-status').value,
                 '',  // LINK_FORM (kosong dulu, nanti diisi saat generate form)
@@ -881,6 +1058,7 @@
             ];
         }
         
+        if(sheet !== 'DATA_SANTRI' && !data[2]) { alert('Pilih minimal 1 kelas target!'); return; }
         document.getElementById(btnId).innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
         const res = await callAPI({ action: 'tambahData', sheet: sheet, dataArray: data });
         alert(res.pesan);
@@ -911,20 +1089,87 @@
         return rows.filter(r => r.some(v => v.trim() !== ''));
     }
 
-    function unduhTemplate(jenis) {
-        const csv = jenis === 'santri'
-            ? 'nis,nama,kelas,pass\n12345,Ahmad Ali,7A,abc123\n12346,Siti Nur,7A,\n'
-            : 'id,mapel,kelas_target,token,status,tanggal,mulai,selesai,durasi\nUJ-01,Matematika,7A,A1B2C,Aktif,2026-09-15,07:30,09:00,90\nUJ-02,Bahasa Indonesia,"7A,7B",,Aktif,2026-09-16,07:30,09:00,90\n';
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = jenis === 'santri' ? 'template_santri.csv' : 'template_mapel.csv';
-        a.click();
+    function loadXlsxLib() {
+        if (window.XLSX) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+            s.onload = resolve; s.onerror = () => reject(new Error('CDN SheetJS gagal dimuat.'));
+            document.head.appendChild(s);
+        });
+    }
+    function normKelasJS(k) {
+        k = String(k || '').toUpperCase().replace(/^KELAS\s+/, '').replace(/[\s.\-_]/g, '');
+        const map = [['XII','12'],['XI','11'],['IX','9'],['X','10'],['VIII','8'],['VII','7'],['VI','6']];
+        for (const [r, d] of map) { const re = new RegExp('^' + r + '(?=[0-9A-Z]|$)'); if (re.test(k)) { k = k.replace(re, d); break; } }
+        return k;
+    }
+    async function unduhTemplate(jenis) {
+        if (jenis === 'santri') {
+            const csv = 'nis,nama,kelas,pass\n12345,Ahmad Ali,7A,abc123\n12346,Siti Nur,7A,\n';
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = 'template_santri.csv';
+            a.click();
+            return;
+        }
+        const btn = document.getElementById('btn-tpl-mapel');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat...'; btn.disabled = true;
+        try {
+            await loadXlsxLib();
+            const res = await callAPI({ action: 'getKelasList' });
+            const daftar = (res.sukses && Array.isArray(res.kelas) && res.kelas.length ? res.kelas : []).slice().sort();
+            if (!daftar.length) { alert('Belum ada data santri. Input santri dulu sebelum buat template.'); return; }
+            const list = ['SEMUA'].concat(daftar);
+            const head = ['id','mapel','kelas_1','kelas_2','kelas_3','token','status','tanggal','mulai','selesai','durasi'];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([head, ['UJ-01','Matematika', daftar[0] || 'SEMUA', '', '', '', 'Aktif', '', '', '', 90]]);
+            const ref = XLSX.utils.decode_range(ws['!ref']);
+            for (let r = 2; r <= 501; r++) ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: ref.e.c, r: Math.max(ref.e.r, r - 1) } });
+            const hidden = XLSX.utils.aoa_to_sheet([['DaftarKelas']].concat(list.map(v => [v])));
+            XLSX.utils.book_append_sheet(wb, ws, 'Mapel');
+            XLSX.utils.book_append_sheet(wb, hidden, 'DaftarKelas');
+            wb.Workbook = wb.Workbook || {}; wb.Workbook.Sheets = wb.Workbook.Sheets || [];
+            wb.Workbook.Sheets[1] = Object.assign(wb.Workbook.Sheets[1] || {}, { Hidden: 1 });
+            // ponytail: dropdown Excel = data validation list, bukan proteksi sheet; user tetap bisa paste manual tapi server tolak bila asing.
+            const lastK = list.length;
+            ws['!dataValidations'] = [
+              { sqref: 'C2:E501', type: 'list', allowBlank: 1, showDropDown: 0, formula1: 'DaftarKelas!$A$2:$A$' + (lastK + 1) },
+              { sqref: 'G2:G501', type: 'list', allowBlank: 0, showDropDown: 0, formula1: '"Aktif,Nonaktif"' }
+            ];
+            XLSX.writeFile(wb, 'template_mapel.xlsx');
+        } catch (e) { alert(e.message || 'Gagal membuat template.'); }
+        finally { btn.innerHTML = '<i class="fas fa-download mr-1"></i> Template Excel'; btn.disabled = false; }
     }
 
     function bacaFileBulk(jenis) {
         const f = document.getElementById('file-bulk-' + jenis).files[0];
         if (!f) return;
         if (f.size > 512 * 1024) return alert('File maks 512KB.');
+        if (jenis === 'mapel' && /\.(xlsx|xls)$/i.test(f.name)) {
+            loadXlsxLib().then(() => {
+                const r = new FileReader();
+                r.onload = () => {
+                    try {
+                        const wb = XLSX.read(r.result, { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+                        if (!aoa.length) return alert('Sheet kosong!');
+                        const head = aoa[0].map(h => String(h).trim().toLowerCase());
+                        const need = ['id','mapel','kelas_1','kelas_2','kelas_3'];
+                        const miss = need.filter(k => !head.includes(k));
+                        if (miss.length) return alert('Kolom kurang: ' + miss.join(', ') + '. Pakai Template Excel.');
+                        const idx = k => head.indexOf(k);
+                        const lines = aoa.slice(1).filter(rw => rw.some(v => String(v).trim() !== '')).slice(0, 500)
+                            .map(rw => [rw[idx('id')] || '', rw[idx('mapel')] || '', rw[idx('kelas_1')] || '', rw[idx('kelas_2')] || '', rw[idx('kelas_3')] || '', idx('token') >= 0 ? rw[idx('token')] || '' : '', idx('status') >= 0 ? rw[idx('status')] || 'Aktif' : 'Aktif', idx('tanggal') >= 0 ? rw[idx('tanggal')] || '' : '', idx('mulai') >= 0 ? rw[idx('mulai')] || '' : '', idx('selesai') >= 0 ? rw[idx('selesai')] || '' : '', idx('durasi') >= 0 ? rw[idx('durasi')] || 90 : 90].map(v => String(v).includes(',') || String(v).includes('"') ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(','));
+                        document.getElementById('bulk-' + jenis).value = 'id,mapel,kelas_1,kelas_2,kelas_3,token,status,tanggal,mulai,selesai,durasi\n' + lines.join('\n');
+                        alert(lines.length + ' baris dimuat. Cek lalu klik UPLOAD BULK.');
+                    } catch (e) { alert('Gagal baca Excel: ' + (e.message || e)); }
+                };
+                r.readAsArrayBuffer(f);
+            }).catch(e => alert(e.message));
+            return;
+        }
         const r = new FileReader();
         r.onload = () => { document.getElementById('bulk-' + jenis).value = r.result; alert('File dimuat. Cek isi lalu klik UPLOAD BULK.'); };
         r.readAsText(f);
@@ -941,6 +1186,7 @@
         const data = isHeader ? lines.slice(1) : lines;
         let rows;
         if (jenis === 'santri') rows = data.map(c => ({ nis: c[0] || '', nama: c[1] || '', kelas: c[2] || '', pass: c[3] || '' }));
+        else if (head.includes('kelas_1')) { const i = k => head.indexOf(k); rows = data.map(c => ({ id: c[i('id')] || '', mapel: c[i('mapel')] || '', kelas_1: c[i('kelas_1')] || '', kelas_2: c[i('kelas_2')] || '', kelas_3: c[i('kelas_3')] || '', token: i('token') >= 0 ? c[i('token')] || '' : '', status: i('status') >= 0 ? c[i('status')] || 'Aktif' : 'Aktif', tanggal: i('tanggal') >= 0 ? c[i('tanggal')] || '' : '', mulai: i('mulai') >= 0 ? c[i('mulai')] || '' : '', selesai: i('selesai') >= 0 ? c[i('selesai')] || '' : '', durasi: i('durasi') >= 0 ? c[i('durasi')] || 90 : 90 })); }
         else rows = data.map(c => ({ id: c[0] || '', mapel: c[1] || '', kelas_target: c[2] || '', token: c[3] || '', status: c[4] || 'Aktif', tanggal: c[5] || '', mulai: c[6] || '', selesai: c[7] || '', durasi: c[8] || 90 }));
         const btn = document.getElementById('btn-bulk-' + jenis);
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengupload...'; btn.disabled = true;
@@ -975,8 +1221,8 @@
        const data = window.cbtDokumenData; 
        const mapel = data.mapel.find(m => m.id === mapelId); 
        if(!mapel) return;
-       let targetKelas = mapel.kelas.split(',').map(k => k.trim().toUpperCase());
-       let peserta = data.santri.filter(s => { let kSiswa = s.kelas.toString().trim().toUpperCase(); return targetKelas.includes(kSiswa) || targetKelas.includes(kSiswa.charAt(0)); });
+        let targetKelas = mapel.kelas.split(',').map(k => normKelasJS(k));
+        let peserta = data.santri.filter(s => { let kSiswa = normKelasJS(s.kelas); return targetKelas.includes('SEMUA') || targetKelas.includes(kSiswa); });
         let html = `<html><head><title>Dokumen Ujian - ${esc(mapel.nama)}</title><style>body{font-family:'Times New Roman',Times,serif;padding:40px;font-size:12pt;color:black;}.kop{text-align:center;border-bottom:4px double black;padding-bottom:10px;margin-bottom:30px;}.kop h1{margin:0;font-size:18pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;}.judul{text-align:center;font-weight:bold;font-size:14pt;text-decoration:underline;margin-bottom:30px;letter-spacing:1px;}.isi{text-align:justify;line-height:1.6;margin-bottom:30px;}.table-info{margin-left:20px;margin-bottom:20px;line-height:1.6;}.table-info td{vertical-align:top;}.table-peserta{border-collapse:collapse;margin-top:20px;margin-bottom:30px;width:100%;font-size:11pt;}.table-peserta th,.table-peserta td{border:1px solid black;padding:8px 12px;}.table-peserta th{background-color:#f0f0f0;}.ttd{width:100%;margin-top:50px;page-break-inside:avoid;}.ttd td{width:33%;text-align:center;vertical-align:bottom;height:120px;line-height:1.3;}@media print{.page-break{page-break-before:always;}}</style></head><body onload="window.print()">
         <div class="kop"><h1>PANITIA UJIAN BERBASIS KOMPUTER (CBT)</h1><h1>${esc(data.settings.sekolah)}</h1></div>
         <div class="judul">BERITA ACARA PELAKSANAAN UJIAN</div>
@@ -991,16 +1237,18 @@
        let printWin = window.open('','','width=900,height=800'); printWin.document.write(html); printWin.document.close();
     }
 
-    function cetakKartu() {
+    async function cetakKartu() {
       const btn = document.getElementById('btn-cetak'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING...'; btn.disabled = true;
-      callAPI({action:'getSantriData'}).then(res => {
-         btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false;
-         if(!Array.isArray(res)) { alert('Gagal memuat data santri: ' + (res.pesan || 'error')); return; }
-         let html = `<html><head><title>Kartu Ujian</title><style>body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eee;padding:20px;}.print-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:auto;}.card{background:#fff;border:2px dashed #333;padding:20px;border-radius:12px;}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}.header h2{margin:0;font-size:18px;text-transform:uppercase;}.header p{margin:5px 0 0 0;font-size:12px;}.row{margin-bottom:8px;font-size:14px;display:flex;}.label{width:80px;font-weight:bold;}.pass-box{background:#f0f0f0;padding:5px 10px;font-family:monospace;font-size:16px;font-weight:bold;letter-spacing:2px;border:1px solid #ccc;display:inline-block;}@media print{body{background:#fff;padding:0;}.print-container{gap:10px;}.card{page-break-inside:avoid;border:1px solid #000;}}</style></head><body onload="window.print()"><div class="print-container">`;
-         res.forEach(s => { html += `<div class="card"><div class="header"><h2>KARTU PESERTA CBT</h2><p>SMP UNGGULAN ASHIDIQ</p></div><div class="row"><div class="label">NIS</div>: &nbsp;${esc(s.nis)}</div><div class="row"><div class="label">Nama</div>: &nbsp;<b>${esc(s.nama)}</b></div><div class="row"><div class="label">Kelas</div>: &nbsp;${esc(s.kelas)}</div><div class="row" style="margin-top:15px;align-items:center;"><div class="label">Password</div>: &nbsp;<div class="pass-box">${esc(s.pass)}</div></div></div>`; });
+      try {
+        const [res, dok] = await Promise.all([callAPI({action:'getSantriData'}), callAPI({action:'getDokumenData'})]);
+        btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false;
+        if(!Array.isArray(res)) { alert('Gagal memuat data santri: ' + (res.pesan || 'error')); return; }
+        const namaSekolah = (dok && dok.settings && dok.settings.sekolah) || document.getElementById('set-sekolah').value || 'SMA PONDOK PESANTREN ASH-SHIDDIQ';
+        let html = `<html><head><title>Kartu Ujian</title><style>body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eee;padding:20px;}.print-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:auto;}.card{background:#fff;border:2px dashed #333;padding:20px;border-radius:12px;}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}.header h2{margin:0;font-size:18px;text-transform:uppercase;}.header p{margin:5px 0 0 0;font-size:12px;}.row{margin-bottom:8px;font-size:14px;display:flex;}.label{width:80px;font-weight:bold;}.pass-box{background:#f0f0f0;padding:5px 10px;font-family:monospace;font-size:16px;font-weight:bold;letter-spacing:2px;border:1px solid #ccc;display:inline-block;}@media print{body{background:#fff;padding:0;}.print-container{gap:10px;}.card{page-break-inside:avoid;border:1px solid #000;}}</style></head><body onload="window.print()"><div class="print-container">`;
+        res.forEach(s => { html += `<div class="card"><div class="header"><h2>KARTU PESERTA CBT</h2><p>${esc(namaSekolah)}</p></div><div class="row"><div class="label">NIS</div>: &nbsp;${esc(s.nis)}</div><div class="row"><div class="label">Nama</div>: &nbsp;<b>${esc(s.nama)}</b></div><div class="row"><div class="label">Kelas</div>: &nbsp;${esc(s.kelas)}</div><div class="row" style="margin-top:15px;align-items:center;"><div class="label">Password</div>: &nbsp;<div class="pass-box">${esc(s.pass)}</div></div></div>`; });
          html += `</div></body></html>`;
          let printWin = window.open('','','width=900,height=600'); printWin.document.write(html); printWin.document.close();
-      });
+      } catch(e) { btn.innerHTML = '<i class="fas fa-print mr-2"></i> CETAK KARTU SEKARANG'; btn.disabled = false; alert('Gagal cetak kartu: ' + (e.message || e)); }
     }
 
     function magicCode(id, len) { const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let r=""; for(let i=0;i<len;i++) r+=c.charAt(Math.floor(Math.random()*c.length)); document.getElementById(id).value=r; }
@@ -1057,15 +1305,92 @@
             sessionStorage.setItem('cbt_timer_end', String(new Date().getTime() + durasi * 60 * 1000));
           }
 
-          document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
-          document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
+          document.getElementById('siswa-tahap-verifikasi').classList.add('hidden');
+          document.getElementById('siswa-tahap-ujian').classList.remove('hidden');
           document.getElementById('judul-mapel-ujian').innerText = res.mapel;
           document.getElementById('identitas-ujian').innerText = sessionUser.nama + ' (' + sessionUser.nis + ' - ' + sessionUser.kelas + ')';
           document.getElementById('iframe-soal').src = res.link;
           jalankanTimer();
           startDeteksiSubmit(); // ✅ Mulai deteksi submit form
-          paksaFullscreen(); 
+          masukModePersiapan();
       } else { err.innerText = "* " + res.pesan; err.classList.remove('hidden'); }
+    }
+
+    let modePersiapan = false;
+    let pintuDarurat = false;
+    let pintuTimer = null;
+    function masukModePersiapan() {
+      modePersiapan = true;
+      sessionStorage.setItem('cbt_mode_persiapan', '1');
+      document.getElementById('auth-banner').style.display = 'block';
+    }
+    function kunciUjian() {
+      modePersiapan = false;
+      sessionStorage.removeItem('cbt_mode_persiapan');
+      document.getElementById('auth-banner').style.display = 'none';
+      paksaFullscreen();
+    }
+    async function batalUjian() {
+      if(!confirm('Batalkan sesi persiapan dan kembali ke daftar ujian?\n\nTimer yang sudah jalan tidak kembali.')) return;
+      try {
+        if(sessionUser && idUjianAktif) await callAPI({ action: 'batalUjian', idUjian: idUjianAktif });
+      } catch(e) {}
+      modePersiapan = false;
+      tutupPintu();
+      lepasKunciAPK();
+      try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+      clearInterval(timerInterval);
+      sessionStorage.removeItem('cbt_timer_end');
+      sessionStorage.removeItem('cbt_mapel_aktif');
+      sessionStorage.removeItem('cbt_id_ujian');
+      sessionStorage.removeItem('cbt_link_soal');
+      sessionStorage.removeItem('cbt_mode_persiapan');
+      mapelAktif = null; idUjianAktif = null;
+      document.getElementById('auth-banner').style.display = 'none';
+      document.getElementById('siswa-tahap-ujian').classList.add('hidden');
+      document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
+      if(sessionUser) loadMapelSiswa(sessionUser.kelas);
+    }
+    let ketukMapel = [];
+    async function ketukJudul() {
+      const now = Date.now();
+      ketukMapel = ketukMapel.filter(t => now - t < 3000);
+      ketukMapel.push(now);
+      if(ketukMapel.length >= 5) {
+        ketukMapel = [];
+        if(pintuDarurat) { kunciLagi(); return; }
+        const kode = prompt('PINTU DARURAT — minta kode ke proktor (kode unlock aktif):');
+        if(!kode) return;
+        const res = await callAPI({ action: 'validateUnlock', code: kode.trim().toUpperCase() });
+        if(res.sukses) bukaPintu();
+        else alert('❌ Kode salah atau kadaluarsa.');
+      }
+    }
+    function bukaPintu() {
+      pintuDarurat = true;
+      lepasKunciAPK();
+      try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+      let sisa = 120;
+      const el = document.getElementById('pintu-banner');
+      const txt = document.getElementById('pintu-sisa');
+      el.style.display = 'block';
+      alert('🚪 Pintu darurat terbuka 120 detik.\nTombol Back HP aktif — selesaikan urusan 2FA lalu klik KUNCI LAGI.\nTimer tetap jalan.');
+      if(pintuTimer) clearInterval(pintuTimer);
+      pintuTimer = setInterval(() => {
+        sisa--;
+        if(txt) txt.innerText = sisa;
+        if(sisa <= 0) kunciLagi();
+      }, 1000);
+    }
+    function tutupPintu() {
+      pintuDarurat = false;
+      if(pintuTimer) { clearInterval(pintuTimer); pintuTimer = null; }
+      const el = document.getElementById('pintu-banner');
+      if(el) el.style.display = 'none';
+    }
+    function kunciLagi() {
+      tutupPintu();
+      if(!modePersiapan) paksaFullscreen();
     }
 
     // =============================================
@@ -1141,6 +1466,10 @@
       clearInterval(timerInterval);
       if(deteksiSubmitInterval) clearInterval(deteksiSubmitInterval); // ✅ Clear polling interval
       window.removeEventListener('message', onFormMessage);
+      modePersiapan = false;
+      tutupPintu();
+      document.getElementById('auth-banner').style.display = 'none';
+      sessionStorage.removeItem('cbt_mode_persiapan');
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
@@ -1350,7 +1679,7 @@
 
     function recordViolation() {
       const ujianSection = document.getElementById('siswa-tahap-ujian');
-      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked) return;
+      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || modePersiapan || pintuDarurat) return;
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
@@ -1397,7 +1726,7 @@
     // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
-      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked) {
+      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !modePersiapan && !pintuDarurat) {
         // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
         setTimeout(() => {
           const active = document.activeElement;
@@ -1425,6 +1754,11 @@
 
     function restoreSecurityState() {
       loadViolationLimit();
+      if(sessionStorage.getItem('cbt_mode_persiapan') === '1') {
+        modePersiapan = true;
+        const ab = document.getElementById('auth-banner');
+        if(ab) ab.style.display = 'block';
+      }
       const locked   = sessionStorage.getItem('cbt_exam_locked');
       const savedVio = sessionStorage.getItem('cbt_total_violations');
       if(locked === 'true') {

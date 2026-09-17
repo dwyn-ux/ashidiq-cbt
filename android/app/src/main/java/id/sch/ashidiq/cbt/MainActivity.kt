@@ -14,10 +14,14 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -32,7 +36,7 @@ class MainActivity : AppCompatActivity() {
       guard.postDelayed(this, 500)
     }
   }
-  private val allowed = listOf("docs.google.com", "drive.google.com", "accounts.google.com", "ssl.gstatic.com", "fonts.gstatic.com", "cdnjs.cloudflare.com", "cdn.tailwindcss.com", "cdn.sheetjs.com", "smpmuashidiq.sch.id", "images.unsplash.com", "script.google.com", "script.googleusercontent.com")
+  private val allowed = listOf("docs.google.com", "drive.google.com", "accounts.google.com", "myaccount.google.com", "apis.google.com", "gstatic.com", "ssl.gstatic.com", "fonts.gstatic.com", "cdnjs.cloudflare.com", "cdn.tailwindcss.com", "cdn.sheetjs.com", "smpmuashidiq.sch.id", "images.unsplash.com", "script.google.com", "script.googleusercontent.com")
 
   inner class Bridge(private val act: Activity) {
     @JavascriptInterface
@@ -59,9 +63,42 @@ class MainActivity : AppCompatActivity() {
       allowFileAccess = false
       allowContentAccess = false
       allowUniversalAccessFromFileURLs = false
-      setSupportMultipleWindows(false)
+      setSupportMultipleWindows(true)
+      javaScriptCanOpenWindowsAutomatically = true
       mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
       cacheMode = WebSettings.LOAD_DEFAULT
+    }
+    web.webChromeClient = object : WebChromeClient() {
+      override fun onJsAlert(v: WebView, url: String, msg: String, res: JsResult): Boolean {
+        try { android.app.AlertDialog.Builder(v.context).setMessage(msg).setPositiveButton("OK") { d, _ -> res.confirm(); d.dismiss() }.setCancelable(false).show() } catch (e: Exception) { res.confirm() }
+        return true
+      }
+      override fun onJsConfirm(v: WebView, url: String, msg: String, res: JsResult): Boolean {
+        try { android.app.AlertDialog.Builder(v.context).setMessage(msg).setPositiveButton("OK") { d, _ -> res.confirm(); d.dismiss() }.setNegativeButton("Batal") { d, _ -> res.cancel(); d.dismiss() }.setCancelable(false).show() } catch (e: Exception) { res.cancel() }
+        return true
+      }
+      override fun onJsPrompt(v: WebView, url: String, msg: String, def: String, res: JsPromptResult): Boolean {
+        try {
+          val inp = EditText(v.context)
+          android.app.AlertDialog.Builder(v.context).setMessage(msg).setView(inp).setPositiveButton("OK") { d, _ -> res.confirm(inp.text.toString()); d.dismiss() }.setNegativeButton("Batal") { d, _ -> res.cancel(); d.dismiss() }.setCancelable(false).show()
+        } catch (e: Exception) { res.cancel() }
+        return true
+      }
+      override fun onCreateWindow(v: WebView, dia: Boolean, user: Boolean, res: android.os.Message): Boolean {
+        val nv = WebView(v.context)
+        nv.settings.javaScriptEnabled = true
+        nv.settings.domStorageEnabled = true
+        nv.webViewClient = v.webViewClient
+        val d = android.app.Dialog(v.context)
+        d.setContentView(nv)
+        nv.webChromeClient = object : WebChromeClient() {
+          override fun onCloseWindow(w: WebView) { try { d.dismiss() } catch (e: Exception) { } }
+        }
+        d.show()
+        (res.obj as WebView.WebViewTransport).webView = nv
+        res.sendToTarget()
+        return true
+      }
     }
     web.addJavascriptInterface(Bridge(this), "Android")
     web.webViewClient = object : WebViewClient() {

@@ -488,14 +488,29 @@
         <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
           <div class="flex items-center gap-4">
              <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
-             <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian">MAPEL</h2>
-             <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
+              <div><h2 class="font-black text-blue-600 uppercase italic" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
+              <p class="text-[10px] font-bold text-slate-500" id="identitas-ujian"></p></div>
           </div>
           <div id="timer-box" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-blue-200 transition-colors duration-300">
              <i class="fas fa-stopwatch mr-2"></i> <span id="waktu-mundur">--:--</span>
           </div>
         </div>
 
+        <div id="auth-banner" style="display:none" class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-2">
+          <p class="font-black text-amber-700 text-sm mb-1">🔓 MODE PERSIAPAN — kunci belum aktif</p>
+          <p class="text-xs text-amber-600 mb-3">Login Gmail & verifikasi 2 langkah dulu (boleh buka SMS/aplikasi lain). Timer tetap jalan. Setelah soal terbuka tanpa diminta login, klik KUNCI UJIAN.</p>
+          <div class="flex gap-2">
+            <button onclick="kunciUjian()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl text-sm transition"><i class="fas fa-lock mr-1"></i> SOAL TERBUKA — KUNCI UJIAN</button>
+            <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batal</button>
+          </div>
+        </div>
+        <div id="pintu-banner" style="display:none" class="bg-purple-50 border-2 border-purple-300 rounded-2xl p-4 mb-2">
+          <p class="font-black text-purple-700 text-sm mb-1">🚪 PINTU DARURAT TERBUKA (<span id="pintu-sisa">120</span>d) — tombol Back HP aktif</p>
+          <div class="flex gap-2 mt-2">
+            <button onclick="kunciLagi()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-black py-3 rounded-xl text-sm transition"><i class="fas fa-lock mr-1"></i> KUNCI LAGI</button>
+            <button onclick="batalUjian()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition">Batalkan sesi & ke daftar</button>
+          </div>
+        </div>
         <div class="iframe-wrapper shadow-2xl relative">
             <iframe id="iframe-soal" src="" allowfullscreen></iframe>
             <div id="time-blocker">
@@ -718,10 +733,11 @@
                 document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
                 document.getElementById('judul-mapel-ujian').innerText = savedMapel;
                 document.getElementById('identitas-ujian').innerText = res.nama + ' (' + res.nis + ' - ' + res.kelas + ')';
-                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal'); 
-                jalankanTimer(); 
+                document.getElementById('iframe-soal').src = sessionStorage.getItem('cbt_link_soal');
+                jalankanTimer();
                 startDeteksiSubmit(); // ✅ Restore deteksi submit
-                paksaFullscreen();
+                if(sessionStorage.getItem('cbt_mode_persiapan') === '1') masukModePersiapan();
+                else paksaFullscreen();
             }
         }
     }
@@ -1289,15 +1305,92 @@
             sessionStorage.setItem('cbt_timer_end', String(new Date().getTime() + durasi * 60 * 1000));
           }
 
-          document.getElementById('siswa-tahap-verifikasi').classList.add('hidden'); 
-          document.getElementById('siswa-tahap-ujian').classList.remove('hidden'); 
+          document.getElementById('siswa-tahap-verifikasi').classList.add('hidden');
+          document.getElementById('siswa-tahap-ujian').classList.remove('hidden');
           document.getElementById('judul-mapel-ujian').innerText = res.mapel;
           document.getElementById('identitas-ujian').innerText = sessionUser.nama + ' (' + sessionUser.nis + ' - ' + sessionUser.kelas + ')';
           document.getElementById('iframe-soal').src = res.link;
           jalankanTimer();
           startDeteksiSubmit(); // ✅ Mulai deteksi submit form
-          paksaFullscreen(); 
+          masukModePersiapan();
       } else { err.innerText = "* " + res.pesan; err.classList.remove('hidden'); }
+    }
+
+    let modePersiapan = false;
+    let pintuDarurat = false;
+    let pintuTimer = null;
+    function masukModePersiapan() {
+      modePersiapan = true;
+      sessionStorage.setItem('cbt_mode_persiapan', '1');
+      document.getElementById('auth-banner').style.display = 'block';
+    }
+    function kunciUjian() {
+      modePersiapan = false;
+      sessionStorage.removeItem('cbt_mode_persiapan');
+      document.getElementById('auth-banner').style.display = 'none';
+      paksaFullscreen();
+    }
+    async function batalUjian() {
+      if(!confirm('Batalkan sesi persiapan dan kembali ke daftar ujian?\n\nTimer yang sudah jalan tidak kembali.')) return;
+      try {
+        if(sessionUser && idUjianAktif) await callAPI({ action: 'batalUjian', idUjian: idUjianAktif });
+      } catch(e) {}
+      modePersiapan = false;
+      tutupPintu();
+      lepasKunciAPK();
+      try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+      clearInterval(timerInterval);
+      sessionStorage.removeItem('cbt_timer_end');
+      sessionStorage.removeItem('cbt_mapel_aktif');
+      sessionStorage.removeItem('cbt_id_ujian');
+      sessionStorage.removeItem('cbt_link_soal');
+      sessionStorage.removeItem('cbt_mode_persiapan');
+      mapelAktif = null; idUjianAktif = null;
+      document.getElementById('auth-banner').style.display = 'none';
+      document.getElementById('siswa-tahap-ujian').classList.add('hidden');
+      document.getElementById('siswa-tahap-verifikasi').classList.remove('hidden');
+      if(sessionUser) loadMapelSiswa(sessionUser.kelas);
+    }
+    let ketukMapel = [];
+    async function ketukJudul() {
+      const now = Date.now();
+      ketukMapel = ketukMapel.filter(t => now - t < 3000);
+      ketukMapel.push(now);
+      if(ketukMapel.length >= 5) {
+        ketukMapel = [];
+        if(pintuDarurat) { kunciLagi(); return; }
+        const kode = prompt('PINTU DARURAT — minta kode ke proktor (kode unlock aktif):');
+        if(!kode) return;
+        const res = await callAPI({ action: 'validateUnlock', code: kode.trim().toUpperCase() });
+        if(res.sukses) bukaPintu();
+        else alert('❌ Kode salah atau kadaluarsa.');
+      }
+    }
+    function bukaPintu() {
+      pintuDarurat = true;
+      lepasKunciAPK();
+      try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+      let sisa = 120;
+      const el = document.getElementById('pintu-banner');
+      const txt = document.getElementById('pintu-sisa');
+      el.style.display = 'block';
+      alert('🚪 Pintu darurat terbuka 120 detik.\nTombol Back HP aktif — selesaikan urusan 2FA lalu klik KUNCI LAGI.\nTimer tetap jalan.');
+      if(pintuTimer) clearInterval(pintuTimer);
+      pintuTimer = setInterval(() => {
+        sisa--;
+        if(txt) txt.innerText = sisa;
+        if(sisa <= 0) kunciLagi();
+      }, 1000);
+    }
+    function tutupPintu() {
+      pintuDarurat = false;
+      if(pintuTimer) { clearInterval(pintuTimer); pintuTimer = null; }
+      const el = document.getElementById('pintu-banner');
+      if(el) el.style.display = 'none';
+    }
+    function kunciLagi() {
+      tutupPintu();
+      if(!modePersiapan) paksaFullscreen();
     }
 
     // =============================================
@@ -1373,6 +1466,10 @@
       clearInterval(timerInterval);
       if(deteksiSubmitInterval) clearInterval(deteksiSubmitInterval); // ✅ Clear polling interval
       window.removeEventListener('message', onFormMessage);
+      modePersiapan = false;
+      tutupPintu();
+      document.getElementById('auth-banner').style.display = 'none';
+      sessionStorage.removeItem('cbt_mode_persiapan');
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
@@ -1582,7 +1679,7 @@
 
     function recordViolation() {
       const ujianSection = document.getElementById('siswa-tahap-ujian');
-      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked) return;
+      if(currentRole !== 'siswa' || !ujianSection || ujianSection.classList.contains('hidden') || isExamLocked || modePersiapan || pintuDarurat) return;
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
@@ -1629,7 +1726,7 @@
     // ✅ FIX: Jangan interrupt kalau siswa sedang aktif di iframe soal
     document.addEventListener('fullscreenchange', () => {
       const u = document.getElementById('siswa-tahap-ujian');
-      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked) {
+      if(!document.fullscreenElement && currentRole === 'siswa' && u && !u.classList.contains('hidden') && !isExamLocked && !modePersiapan && !pintuDarurat) {
         // Beri jeda 1 detik — kalau fokus ada di iframe, jangan recordViolation
         setTimeout(() => {
           const active = document.activeElement;
@@ -1657,6 +1754,11 @@
 
     function restoreSecurityState() {
       loadViolationLimit();
+      if(sessionStorage.getItem('cbt_mode_persiapan') === '1') {
+        modePersiapan = true;
+        const ab = document.getElementById('auth-banner');
+        if(ab) ab.style.display = 'block';
+      }
       const locked   = sessionStorage.getItem('cbt_exam_locked');
       const savedVio = sessionStorage.getItem('cbt_total_violations');
       if(locked === 'true') {

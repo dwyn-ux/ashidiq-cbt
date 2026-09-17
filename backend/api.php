@@ -17,7 +17,7 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
 $ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
@@ -336,6 +336,20 @@ try {
       }
       audit($nis, 'EXAM_FINISH', $mapel . ($telat ? ' TERLAMBAT' : ''));
       out($telat ? ['sukses' => true, 'terlambat' => true, 'pesan' => 'Waktu habis — tercatat TERLAMBAT.'] : ['sukses' => true]);
+    }
+
+    case 'batalUjian': {
+      $db = db();
+      $nis = (string)($s['nis'] ?? $req['nis'] ?? '');
+      $id = strtoupper(trim((string)($req['idUjian'] ?? '')));
+      if ($nis === '' || $id === '') fail('Sesi tidak valid.');
+      $st = $db->prepare("SELECT id FROM sessions WHERE exam_id = ? AND nis = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
+      $st->execute([$id, $nis]);
+      $row = $st->fetch();
+      if (!$row) fail('Tidak ada sesi persiapan aktif.');
+      $db->prepare('UPDATE sessions SET status = "Dibatalkan", archived_at = NOW() WHERE id = ?')->execute([$row['id']]);
+      audit($nis, 'EXAM_CANCEL', $id);
+      out(['sukses' => true, 'pesan' => 'Sesi persiapan dibatalkan.']);
     }
 
     case 'heartbeat':
