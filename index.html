@@ -368,11 +368,11 @@
           <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 mb-6 flex gap-3 items-start">
             <i class="fas fa-info-circle text-blue-500 text-xl shrink-0 mt-0.5"></i>
             <div class="text-sm text-blue-800">
-              <p class="font-bold mb-1">Mode manual (SQL):</p>
+              <p class="font-bold mb-1">Cara pakai (guru cukup tempel link biasa):</p>
               <ul class="list-disc list-inside space-y-1 text-xs">
-                <li>Guru buat Google Form dari akun masing-masing, nilai masuk ke guru via Form tersebut.</li>
-                <li>Form wajib punya 3 field: <b>NIS</b>, <b>NAMA LENGKAP</b>, <b>KELAS</b>.</li>
-                <li>Tempel URL Form di bawah (boleh pakai placeholder <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NIS</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_NAMA</code>, <code class="bg-blue-100 px-1 rounded font-mono">TEMPLATE_KELAS</code> untuk prefill otomatis).</li>
+                <li>Guru buat Google Form, 4 soal pertama wajib berjudul <b>NIS</b>, <b>NAMA</b>, <b>KELAS</b>, <b>MAPEL</b> (teks pendek, wajib isi).</li>
+                <li>Tempel link <code class="bg-blue-100 px-1 rounded font-mono">.../viewform</code> biasa di bawah, klik <b>Deteksi Otomatis</b>, lalu Simpan.</li>
+                <li>Siswa login (NIS+password) lalu MULAI — NIS/Nama/Kelas/Mapel terisi sendiri di Form. Siswa tetap klik Submit sendiri.</li>
               </ul>
             </div>
           </div>
@@ -385,8 +385,19 @@
                 <input type="text" id="linkform-id" placeholder="ID Ujian (Cth: UJ-01)" class="w-full p-3 border rounded-xl uppercase font-bold outline-none">
               </div>
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM</label>
+                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM (LINK BIASA)</label>
                 <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/..." class="w-full p-3 border rounded-xl outline-none text-sm">
+              </div>
+              <div id="linkform-warn" class="hidden text-xs font-bold rounded-xl p-3"></div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="entry-nis" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NAMA</label><input type="text" id="entry-nama" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY KELAS</label><input type="text" id="entry-kelas" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY MAPEL (OPSIONAL)</label><input type="text" id="entry-mapel" inputmode="numeric" placeholder="otomatis" class="w-full p-3 border rounded-xl font-mono text-sm outline-none"></div>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="deteksiEntry()" id="btn-detect" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-xl font-bold shadow transition hover:bg-purple-700"><i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS</button>
+                <button onclick="previewPrefill()" class="flex-1 bg-slate-100 border px-4 py-3 rounded-xl font-bold text-slate-600 transition hover:bg-slate-200"><i class="fas fa-eye mr-2"></i> PREVIEW</button>
               </div>
               <button onclick="simpanLinkForm()" id="btn-linkform" class="w-full bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition hover:bg-blue-700"><i class="fas fa-save mr-2"></i> SIMPAN LINK</button>
             </div>
@@ -560,10 +571,16 @@
                 <button onclick="magicCode('edit-token', 5)" class="bg-slate-100 px-3 rounded-xl border hover:bg-slate-200 shrink-0"><i class="fas fa-ticket-alt"></i></button>
               </div>
             </div>
-            <!-- Link Google Form manual -->
+            <!-- Link Google Form + entry IDs -->
             <div>
-              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM</label>
+              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM (LINK BIASA)</label>
               <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/...">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="edit-enis" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NAMA</label><input type="text" id="edit-enama" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY KELAS</label><input type="text" id="edit-ekelas" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
+              <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY MAPEL</label><input type="text" id="edit-emapel" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="opsional"></div>
             </div>
            <button id="btn-simpan-edit" onclick="simpanEditMapel()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black mt-2 shadow-lg hover:bg-blue-700 transition tracking-wider">SIMPAN PERUBAHAN</button>
         </div>
@@ -777,7 +794,7 @@
               let kelasStr = (m.kelas != null ? m.kelas : '').toString();
               let tokenStr = (m.token != null ? m.token : '').toString();
               let btnEdit = (sessionUser && sessionUser.role === 'admin') ?
-                  `<button onclick="bukaEditMapel('${jsq(m.id)}','${jsq(m.tgl)}','${jsq(m.mulai)}','${jsq(m.selesai)}','${jsq(m.status)}',${m.durasi},'${jsq(mapelStr)}','${jsq(kelasStr)}','${jsq(tokenStr)}','${jsq(m.form_url||'')}')" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold hover:bg-amber-600 transition uppercase tracking-wider"><i class="fas fa-edit"></i> Edit</button>` :
+                  `<button onclick="bukaEditMapel('${jsq(m.id)}','${jsq(m.tgl)}','${jsq(m.mulai)}','${jsq(m.selesai)}','${jsq(m.status)}',${m.durasi},'${jsq(mapelStr)}','${jsq(kelasStr)}','${jsq(tokenStr)}','${jsq(m.form_url||'')}','${jsq(m.entry_nis||'')}','${jsq(m.entry_nama||'')}','${jsq(m.entry_kelas||'')}','${jsq(m.entry_mapel||'')}')" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold hover:bg-amber-600 transition uppercase tracking-wider"><i class="fas fa-edit"></i> Edit</button>` :
                   `<span class="text-[10px] text-slate-400 font-bold bg-slate-100 px-3 py-1 rounded">Locked</span>`;
 
               let btnNilai = m.form_url
@@ -804,20 +821,70 @@
       tbody.innerHTML = html || '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada mapel yang aktif saat ini.</td></tr>';
     }
 
-    // Mode SQL manual: nilai di Google Form guru, tidak ada rekap pusat.
+    function warnLink(msg, ok) {
+      const w = document.getElementById('linkform-warn');
+      if(!w) return;
+      if(!msg) { w.classList.add('hidden'); return; }
+      w.classList.remove('hidden');
+      w.className = 'text-xs font-bold rounded-xl p-3 ' + (ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200');
+      w.innerText = msg;
+    }
+    function entryVals() {
+      return {
+        entryNis: document.getElementById('entry-nis').value.trim(),
+        entryNama: document.getElementById('entry-nama').value.trim(),
+        entryKelas: document.getElementById('entry-kelas').value.trim(),
+        entryMapel: document.getElementById('entry-mapel').value.trim()
+      };
+    }
+    function validEntry(v) { return v === '' || /^\d{4,12}$/.test(v); }
+    async function deteksiEntry() {
+      const id = document.getElementById('linkform-id').value.trim().toUpperCase();
+      if(!id) return alert('Isi ID ujian dulu, lalu Simpan Link sekali sebelum Deteksi.');
+      const btn = document.getElementById('btn-detect');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...'; btn.disabled = true;
+      const res = await callAPI({ action: 'detectFormEntries', idUjian: id });
+      btn.innerHTML = '<i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS'; btn.disabled = false;
+      if(!res.sukses) { warnLink(res.pesan || 'Deteksi gagal. Isi entry ID manual.', false); return; }
+      const e = res.entries || {};
+      document.getElementById('entry-nis').value = e.entry_nis || '';
+      document.getElementById('entry-nama').value = e.entry_nama || '';
+      document.getElementById('entry-kelas').value = e.entry_kelas || '';
+      document.getElementById('entry-mapel').value = e.entry_mapel || '';
+      const n = ['entry_nis','entry_nama','entry_kelas','entry_mapel'].filter(k => e[k]).length;
+      warnLink(n >= 3 ? 'Deteksi dapat ' + n + '/4 kolom. Cek lalu klik SIMPAN LINK.' : 'Hanya dapat ' + n + '/4 kolom. Pastikan judul soal mengandung NIS, NAMA, KELAS, MAPEL.', n >= 3);
+    }
+    function previewPrefill() {
+      const url = document.getElementById('linkform-url').value.trim();
+      if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('Tempel URL Google Form dulu!');
+      const e = entryVals();
+      for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
+      const q = [];
+      if(e.entryNis) q.push('entry.' + e.entryNis + '=CONTOH_NIS');
+      if(e.entryNama) q.push('entry.' + e.entryNama + '=Contoh+Nama');
+      if(e.entryKelas) q.push('entry.' + e.entryKelas + '=7A');
+      if(e.entryMapel) q.push('entry.' + e.entryMapel + '=Matematika');
+      const base = url.split('?')[0];
+      window.open(base + (q.length ? (base.indexOf('?') < 0 ? '?' : '&') + 'usp=pp_url&' + q.join('&') : ''), '_blank', 'noopener');
+    }
     async function simpanLinkForm() {
       const id = document.getElementById('linkform-id').value.trim().toUpperCase();
       const url = document.getElementById('linkform-url').value.trim();
       if(!id || !url) return alert('Isi ID ujian dan URL Form!');
       if(url.indexOf('https://docs.google.com/forms/') !== 0) return alert('URL harus Google Form (https://docs.google.com/forms/...)!');
+      const e = entryVals();
+      for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
+      if(url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
+        if(!confirm('Entry ID masih kosong — Form akan terbuka TANPA prefill. Tetap simpan?')) return;
+      }
       const btn = document.getElementById('btn-linkform');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
-      const res = await callAPI({ action: 'setFormUrl', idUjian: id, formUrl: url });
-      alert(res.pesan); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
-      if(res.sukses) { document.getElementById("linkform-id").value = ""; document.getElementById("linkform-url").value = ""; }
+      const res = await callAPI(Object.assign({ action: 'setFormUrl', idUjian: id, formUrl: url }, e));
+      alert(res.pesan || 'Tersimpan.'); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
+      if(res.sukses) warnLink(res.pesan, true);
     }
 
-    function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl) {
+    function bukaEditMapel(id, tgl, mulai, selesai, status, durasi, mapel, kelas, token, formUrl, enis, enama, ekelas, emapel) {
         document.getElementById('edit-id').value        = id;
         document.getElementById('edit-id-text').innerText = id;
         document.getElementById('edit-namamapel').value = mapel  || '';
@@ -829,24 +896,32 @@
         document.getElementById('edit-durasi').value    = durasi || 90;
         document.getElementById('edit-token').value     = token  || '';
         document.getElementById('edit-formurl').value   = formUrl || '';
+        document.getElementById('edit-enis').value      = enis   || '';
+        document.getElementById('edit-enama').value     = enama  || '';
+        document.getElementById('edit-ekelas').value    = ekelas || '';
+        document.getElementById('edit-emapel').value    = emapel || '';
         document.getElementById('modal-edit-mapel').classList.remove('hidden');
     }
 
     async function simpanEditMapel() {
         const btn = document.getElementById('btn-simpan-edit'); 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
-        const payload = { 
-          action:    'editMapel', 
+        const payload = {
+          action:    'editMapel',
           id:        document.getElementById('edit-id').value,
           mapel:     document.getElementById('edit-namamapel').value,
           kelas:     document.getElementById('edit-kelas').value,
-          tgl:       document.getElementById('edit-tgl').value, 
-          mulai:     document.getElementById('edit-mulai').value, 
-          selesai:   document.getElementById('edit-selesai').value, 
-          status:    document.getElementById('edit-status').value, 
+          tgl:       document.getElementById('edit-tgl').value,
+          mulai:     document.getElementById('edit-mulai').value,
+          selesai:   document.getElementById('edit-selesai').value,
+          status:    document.getElementById('edit-status').value,
           durasi:    document.getElementById('edit-durasi').value,
           examToken: document.getElementById('edit-token').value,
-          formUrl:   document.getElementById('edit-formurl').value
+          formUrl:   document.getElementById('edit-formurl').value,
+          entryNis:   document.getElementById('edit-enis').value.trim(),
+          entryNama:  document.getElementById('edit-enama').value.trim(),
+          entryKelas: document.getElementById('edit-ekelas').value.trim(),
+          entryMapel: document.getElementById('edit-emapel').value.trim()
         };
         const res = await callAPI(payload);
         alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
