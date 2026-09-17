@@ -1348,11 +1348,17 @@
     function bukaLoginGoogle() {
       googleLoginDibuka = true;
       try { sessionStorage.setItem('cbt_google_dibuka', '1'); } catch(e) {}
-      setGateHint('');
+      setGateHint('Membuka halaman login Google... setelah halaman My Account muncul, kembali ke aplikasi pakai tombol Back HP.');
+      // 1) APK: navigasi dipaksa dari native (WebView.loadUrl) — popup & deteksi user agent tidak andal
+      try {
+        if (window.Android && typeof window.Android.openLogin === 'function' && window.Android.openLogin(GOOGLE_LOGIN_URL)) return;
+      } catch(e) {}
+      // 2) WebView lain / file:// : navigasi same-window
       if (IS_APK_WEBVIEW) { window.location.href = GOOGLE_LOGIN_URL; return; }
+      // 3) Browser: tab baru, fallback navigasi penuh bila popup diblokir
       var w = null;
-      try { w = window.open(GOOGLE_LOGIN_URL, '_blank', 'noopener'); } catch(e) { w = null; }
-      if(!w) window.location.href = GOOGLE_LOGIN_URL;
+      try { w = window.open(GOOGLE_LOGIN_URL, '_blank'); } catch(e) { w = null; }
+      if (w) { try { w.opener = null; } catch(e) {} } else window.location.href = GOOGLE_LOGIN_URL;
     }
     function toggleGoogle(v) {
       if (v && !googleLoginDibuka) {

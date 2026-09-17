@@ -54,9 +54,26 @@ class MainActivity : AppCompatActivity() {
     fun clearReentryFlag() {
       try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
     }
+
+    // Tombol "BUKA LOGIN GOOGLE": navigasi dipaksa native lewat WebView.loadUrl.
+    // window.open + deteksi user agent tidak andal di WebView → tombol terasa "tidak merespon".
+    @JavascriptInterface
+    fun openLogin(url: String): Boolean {
+      val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
+      val host = u.host ?: return false
+      if ((u.scheme ?: "") != "https") return false
+      if (loginHosts.none { host == it || host.endsWith(".$it") }) return false
+      return try {
+        act.runOnUiThread { try { web.loadUrl(u.toString()) } catch (e: Exception) { } }
+        true
+      } catch (e: Exception) { false }
+    }
   }
 
-  companion object { private const val PREFS = "cbt_lock" }
+  companion object {
+    private const val PREFS = "cbt_lock"
+    private val loginHosts = listOf("myaccount.google.com", "accounts.google.com")
+  }
 
   private fun isOwner(): Boolean = try { dpm.isDeviceOwnerApp(packageName) } catch (e: Exception) { false }
 
@@ -70,6 +87,12 @@ class MainActivity : AppCompatActivity() {
     try { if (isOwner()) dpm.setLockTaskPackages(admin, arrayOf(packageName)) } catch (e: Exception) { }
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     web = findViewById(R.id.web)
+    // Cookie Gmail harus ikut terkirim ke iframe Google Form, kalau tidak siswa diminta login lagi di tengah ujian
+    try {
+      val cm = android.webkit.CookieManager.getInstance()
+      cm.setAcceptCookie(true)
+      cm.setAcceptThirdPartyCookies(web, true)
+    } catch (e: Exception) { }
     web.settings.apply {
       javaScriptEnabled = true
       domStorageEnabled = true
