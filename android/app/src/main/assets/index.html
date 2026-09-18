@@ -34,11 +34,9 @@
     #lock-screen button { margin-top: 20px; padding: 16px 48px; background: #ef4444; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 1.1rem; cursor: pointer; transition: all 0.3s; }
     #lock-screen button:hover { background: #dc2626; transform: scale(1.05); }
 
-    /* HOLOGRAM TIMER HABIS */
-    #time-blocker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220, 38, 38, 0.95); z-index: 50; display: none; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
-    #time-blocker h1 { font-size: 3rem; font-weight: 900; color: white; text-align: center; text-transform: uppercase; line-height: 1.2; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-    .pulse-arrow { font-size: 5rem; color: white; margin-top: 20px; animation: bounce 1s infinite; }
-    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(20px); } }
+    /* PERINGATAN TIMER HABIS */
+    #time-blocker { width: 100%; background: #dc2626; display: none; flex-direction: column; justify-content: center; align-items: center; border-radius: 12px; padding: 18px; margin-top: 16px; box-shadow: 0 8px 24px rgba(220,38,38,0.25); }
+    #time-blocker h1 { font-size: 1.25rem; font-weight: 900; color: white; text-align: center; text-transform: uppercase; line-height: 1.2; }
 
     /* NILAI TAB */
     .nilai-card { transition: all .2s; }
@@ -272,7 +270,7 @@
                   <th class="px-4 py-4">Jadwal & Durasi</th>
                   <th class="px-4 py-4">Token</th>
                   <th class="px-4 py-4">Status</th>
-                  <th class="px-4 py-4 text-center">Form</th>
+                  <th class="px-4 py-4 text-center">Link Ujian</th>
                   <th class="px-4 py-4 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -384,16 +382,16 @@
 
         <!-- TAB GENERATE -->
         <div id="tab-generate" class="admin-tab-content">
-          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Link Google Form</h2>
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Link Ujian</h2>
 
           <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 mb-6 flex gap-3 items-start">
             <i class="fas fa-info-circle text-blue-500 text-xl shrink-0 mt-0.5"></i>
             <div class="text-sm text-blue-800">
-              <p class="font-bold mb-1">Cara pakai (guru cukup tempel link biasa):</p>
+              <p class="font-bold mb-1">Cara pakai:</p>
               <ul class="list-disc list-inside space-y-1 text-xs">
-                <li>Guru buat Google Form, 4 soal pertama wajib berjudul <b>NIS</b>, <b>NAMA</b>, <b>KELAS</b>, <b>MAPEL</b> (teks pendek, wajib isi).</li>
-                <li>Tempel link Google Form atau shortlink <code class="bg-blue-100 px-1 rounded font-mono">s.id/...</code>, klik <b>Deteksi Otomatis</b>, lalu Simpan.</li>
-                <li>Siswa login (NIS+password) lalu MULAI — NIS/Nama/Kelas/Mapel terisi sendiri di Form. Siswa tetap klik Submit sendiri.</li>
+                <li>Tempel URL HTTPS apa pun, termasuk Google Form, LMS, halaman web, atau shortlink.</li>
+                <li>Untuk Google Form, 4 soal pertama dapat diberi judul <b>NIS</b>, <b>NAMA</b>, <b>KELAS</b>, <b>MAPEL</b> agar bisa terisi otomatis.</li>
+                <li><b>Deteksi Otomatis</b> khusus Google Form. Link lain cukup disimpan.</li>
               </ul>
             </div>
           </div>
@@ -406,8 +404,8 @@
                 <select id="linkform-id" onchange="onLinkFormChange()" class="w-full p-3 border rounded-xl font-bold outline-none bg-white"><option value="">Memuat daftar ujian...</option></select>
               </div>
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM / SHORTLINK</label>
-                <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/... atau https://s.id/..." class="w-full p-3 border rounded-xl outline-none text-sm">
+                <label class="text-[10px] font-bold text-slate-400 ml-1">URL UJIAN (WAJIB HTTPS)</label>
+                <input type="url" id="linkform-url" placeholder="https://contoh.com/ujian atau https://s.id/..." class="w-full p-3 border rounded-xl outline-none text-sm">
               </div>
               <div id="linkform-warn" class="hidden text-xs font-bold rounded-xl p-3"></div>
               <div class="grid grid-cols-2 gap-3">
@@ -506,14 +504,14 @@
           <button type="button" onclick="bukaTutupMenuSiswa()" class="bg-blue-700 hover:bg-blue-800 p-3 rounded-xl transition relative z-50 cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
         </div>
         <div id="info-chrome" class="bg-blue-50 border-x border-b border-blue-200 px-6 py-3">
-          <p class="text-[11px] font-bold text-blue-700"><i class="fas fa-info-circle mr-1"></i> Alur ujian: login aplikasi, pastikan Google sudah login di Chrome, pilih mapel, isi token, lalu mulai ujian.</p>
+          <p class="text-[11px] font-bold text-blue-700"><i class="fas fa-info-circle mr-1"></i> Alur ujian: login aplikasi, pilih mapel, isi token, lalu mulai. Login Google hanya diperlukan jika link ujian memakai Google Form.</p>
         </div>
         <div id="google-preflight" class="bg-white border-x border-b border-blue-100 px-6 py-5">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Langkah 1</p>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Opsional</p>
               <h3 class="font-black text-slate-800 text-lg">Login Google di Chrome</h3>
-              <p id="google-preflight-status" class="text-xs font-bold text-slate-500 mt-1">Cek sekali sebelum pilih mapel supaya Google Form langsung memakai akun yang benar.</p>
+              <p id="google-preflight-status" class="text-xs font-bold text-slate-500 mt-1">Gunakan hanya jika ujian memakai Google Form yang mewajibkan login.</p>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 shrink-0">
               <button onclick="mulaiLoginGoogleAwal()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-5 py-3 rounded-xl shadow text-xs transition"><i class="fab fa-google mr-2"></i>LOGIN GOOGLE</button>
@@ -550,8 +548,8 @@
         <div id="siap-buka" style="display:none" class="bg-blue-600 text-white rounded-2xl p-6 mb-2 text-center shadow-xl">
           <p class="font-black text-lg mb-1">LANGKAH 1/2 — TOKEN BENAR</p>
           <p class="text-sm mb-1"><span id="siap-nama" class="font-black"></span> — timer <b>BELUM</b> jalan.</p>
-          <p class="text-xs opacity-90 mb-4">1. Pastikan akun Google sudah login di Chrome.<br>2. Klik MULAI UJIAN. Aplikasi dikunci dan soal baru dibuka setelah timer berjalan.</p>
-          <button onclick="bukaLoginGoogleDiChrome()" class="w-full bg-blue-800 text-white font-black py-3 rounded-xl shadow text-xs transition hover:bg-blue-900"><i class="fab fa-google mr-2"></i> LOGIN GOOGLE DULU (BOLEH 2FA)</button>
+          <p id="siap-petunjuk" class="text-xs opacity-90 mb-4">Klik MULAI UJIAN. Aplikasi dikunci dan link soal dibuka setelah timer berjalan.</p>
+          <button id="btn-login-google-ujian" onclick="bukaLoginGoogleDiChrome()" class="w-full bg-blue-800 text-white font-black py-3 rounded-xl shadow text-xs transition hover:bg-blue-900"><i class="fab fa-google mr-2"></i> LOGIN GOOGLE (JIKA DIPERLUKAN)</button>
           <button id="btn-soal-terbuka" onclick="soalTerbuka()" class="mt-2 w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow text-sm transition"><i class="fas fa-lock mr-2"></i> MULAI UJIAN — KUNCI & BUKA SOAL</button>
           <button onclick="batalUjian()" class="mt-2 text-xs font-bold opacity-80 underline">Batalkan & kembali ke daftar</button>
         </div>
@@ -566,9 +564,9 @@
           <button onclick="refreshSoalUjian()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl text-xs transition"><i class="fas fa-sync-alt mr-2"></i> REFRESH SOAL</button>
           <p id="status-chrome" class="text-[11px] font-bold text-slate-400 mt-3">Menunggu kembali dari Chrome...</p>
             <div id="time-blocker">
-                <h1>WAKTU UJIAN HABIS!</h1>
-                <p class="text-white text-xl mt-4 font-bold tracking-widest bg-black/50 px-6 py-2 rounded-full">SCROLL KE BAWAH & KLIK SUBMIT!</p>
-                <i class="fas fa-arrow-down pulse-arrow"></i>
+                <h1>WAKTU UJIAN HABIS</h1>
+                <p class="text-white text-sm mt-2 font-bold text-center">Buka kembali link ujian di Chrome, selesaikan atau kirim jawaban, lalu kembali ke aplikasi.</p>
+                <button type="button" onclick="bukaFormDiChrome()" class="mt-4 bg-white text-red-700 px-5 py-3 rounded-xl font-black text-xs shadow hover:bg-red-50 transition"><i class="fas fa-external-link-alt mr-2"></i>BUKA LINK UJIAN</button>
             </div>
             <!-- ✅ OVERLAY SELESAI SUBMIT -->
             <div id="overlay-selesai" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); z-index:60; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(8px);">
@@ -577,7 +575,7 @@
                   <i class="fas fa-check text-white text-5xl"></i>
                 </div>
                 <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
-                <p class="text-slate-300 text-lg mb-2">Pastikan sudah klik Submit/Kirim di Google Form.</p>
+                <p class="text-slate-300 text-lg mb-2">Pastikan jawaban sudah dikirim atau ujian sudah diselesaikan pada link soal.</p>
                 <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
                 <button onclick="selesaiMengerjakan()" 
                         class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
@@ -587,8 +585,8 @@
               </div>
             </div>
         </div>
-        <button onclick="tampilkanOverlaySelesai()" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-lg transition tracking-wider"><i class="fas fa-flag-checkered mr-2"></i> SUDAH SUBMIT — SELESAIKAN UJIAN</button>
-        <p class="text-center text-xs text-slate-400 mt-2">Klik setelah menekan Submit/Kirim di Google Form. Nilai masuk ke guru via Form.</p>
+        <button onclick="tampilkanOverlaySelesai()" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-lg transition tracking-wider"><i class="fas fa-flag-checkered mr-2"></i> UJIAN SELESAI — AKHIRI SESI</button>
+        <p class="text-center text-xs text-slate-400 mt-2">Klik setelah jawaban sudah dikirim atau ujian pada link soal sudah selesai.</p>
       </div>
     </main>
   </section>
@@ -639,8 +637,8 @@
             </div>
             <!-- Link Google Form + entry IDs -->
             <div>
-              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM / SHORTLINK</label>
-              <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/... atau https://s.id/...">
+              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK UJIAN (WAJIB HTTPS)</label>
+              <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://contoh.com/ujian atau https://s.id/...">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="edit-enis" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
@@ -950,7 +948,7 @@
                   `<span class="text-[10px] text-slate-400 font-bold bg-slate-100 px-3 py-1 rounded">Locked</span>`;
 
               let btnNilai = m.form_url
-                  ? `<a href="${esc(m.form_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold transition uppercase tracking-wider"><i class="fas fa-table"></i> Form</a>`
+                  ? `<a href="${esc(m.form_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg shadow text-[10px] font-bold transition uppercase tracking-wider"><i class="fas fa-external-link-alt"></i> Buka</a>`
                   : `<span class="text-[10px] text-slate-300 font-bold bg-slate-50 px-3 py-1 rounded border">Belum ada</span>`;
 
               html += `<tr class="border-b hover:bg-slate-50">
@@ -1018,6 +1016,7 @@
         const host = u.hostname.toLowerCase();
         if(host === 'docs.google.com' && u.pathname.indexOf('/forms/') === 0) return 'google';
         if(host === 'forms.gle' || host === 's.id' || host === 'www.s.id') return 'short';
+        if(host) return 'link';
       } catch(e) {}
       return '';
     }
@@ -1026,7 +1025,7 @@
       if(!id) return alert('Pilih ujian dulu.');
       const urlInput = document.getElementById('linkform-url');
       const url = urlInput.value.trim();
-      if(!url || !formInputType(url)) return alert('Tempel link Google Form, forms.gle, atau s.id yang valid dulu.');
+      if(!url || !formInputType(url)) return alert('Tempel URL ujian HTTPS yang valid dulu.');
       const btn = document.getElementById('btn-detect');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...'; btn.disabled = true;
       const saved = await callAPI(Object.assign({ action: 'setFormUrl', idUjian: id, formUrl: url }, entryVals()));
@@ -1050,8 +1049,8 @@
     function previewPrefill() {
       const url = document.getElementById('linkform-url').value.trim();
       const type = formInputType(url);
-      if(!type) return alert('Tempel link Google Form, forms.gle, atau s.id yang valid dulu.');
-      if(type === 'short') return alert('Klik Deteksi Otomatis atau Simpan Link dulu agar shortlink diverifikasi dan diubah ke URL Google Form asli.');
+      if(!type) return alert('Tempel URL ujian HTTPS yang valid dulu.');
+      if(type !== 'google') { window.open(url, '_blank', 'noopener'); return; }
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
       const q = [];
@@ -1067,10 +1066,11 @@
       const url = document.getElementById('linkform-url').value.trim();
       if(!id) return alert('Pilih ujian dulu!');
       if(!url) return alert('Isi URL Form!');
-      if(!formInputType(url)) return alert('URL harus Google Form, forms.gle, atau s.id yang menuju Google Form.');
+      const linkType = formInputType(url);
+      if(!linkType) return alert('Link ujian harus menggunakan HTTPS yang valid.');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
-      if(url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
+      if(linkType === 'google' && url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
         if(!confirm('Entry ID masih kosong — Form akan terbuka TANPA prefill. Tetap simpan?')) return;
       }
       const btn = document.getElementById('btn-linkform');
@@ -1163,7 +1163,7 @@
           entryMapel: document.getElementById('edit-emapel').value.trim()
         };
         if(!payload.kelas) { alert('Pilih minimal 1 kelas target!'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
-        if(payload.formUrl.trim() && !formInputType(payload.formUrl.trim())) { alert('Link harus Google Form, forms.gle, atau s.id yang menuju Google Form.'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
+        if(payload.formUrl.trim() && !formInputType(payload.formUrl.trim())) { alert('Link ujian harus menggunakan HTTPS yang valid.'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
         const res = await callAPI(payload);
         alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
         if(res.sukses) { document.getElementById('modal-edit-mapel').classList.add('hidden'); loadDataUjian(); }
@@ -1448,7 +1448,7 @@
       } else {
         box.className = 'bg-white border-x border-b border-blue-100 px-6 py-5';
         st.className = 'text-xs font-bold text-slate-500 mt-1';
-        st.innerHTML = 'Cek sekali sebelum pilih mapel supaya Google Form langsung memakai akun yang benar.';
+        st.innerHTML = 'Gunakan hanya jika ujian memakai Google Form yang mewajibkan login.';
         if (btn) btn.innerHTML = '<i class="fas fa-check mr-2"></i>SUDAH LOGIN';
       }
     }
@@ -1517,6 +1517,14 @@
     function tampilkanSiapBuka(link) {
       sessionStorage.setItem('cbt_link_soal', link);
       document.getElementById('siap-nama').innerText = (mapelAktif || '') + ' — ' + ((sessionUser && sessionUser.nama) || '');
+      let googleLink = false;
+      try { const h = new URL(link).hostname.toLowerCase(); googleLink = h === 'docs.google.com' || h === 'forms.gle' || h === 'forms.google.com'; } catch(e) {}
+      const loginBtn = document.getElementById('btn-login-google-ujian');
+      const petunjuk = document.getElementById('siap-petunjuk');
+      if(loginBtn) loginBtn.style.display = googleLink ? 'block' : 'none';
+      if(petunjuk) petunjuk.innerHTML = googleLink
+        ? 'Jika diperlukan, login Google dulu. Setelah itu klik MULAI UJIAN agar aplikasi dikunci sebelum soal dibuka.'
+        : 'Klik MULAI UJIAN. Aplikasi dikunci dan link soal dibuka setelah timer berjalan.';
       document.getElementById('siap-buka').style.display = 'block';
       document.getElementById('info-form-chrome').style.display = 'none';
       document.getElementById('btn-buka-ulang').style.display = 'none';
@@ -1571,7 +1579,7 @@
       tabFormChrome = false;
       if (googleLoginPending) tandaiGoogleSiap(true);
       const b = document.getElementById('info-form-chrome');
-      if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Kalau semua jawaban sudah di-Submit, klik tombol <b>SUDAH SUBMIT — SELESAIKAN UJIAN</b> di bawah.';
+      if (b) b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Kembali dari Chrome. Jika ujian sudah selesai, klik tombol <b>UJIAN SELESAI — AKHIRI SESI</b> di bawah.';
       const st = document.getElementById('status-chrome');
       if (st) st.innerText = 'Kembali dari Chrome. Lanjut isi atau selesaikan ujian.';
       // Kunci hanya bila timer sudah jalan (tahap kerjakan). Tahap siap-buka
@@ -1595,11 +1603,6 @@
       await mulaiUjian(id, kode);
     }
     async function mulaiUjian(id, kodeRetry) {
-      if (!isGoogleReady()) {
-        alert('Login Google dulu di Chrome. Setelah kembali ke aplikasi, tekan SUDAH LOGIN lalu masukkan token.');
-        try { document.getElementById('google-preflight').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
-        return;
-      }
       const t = document.getElementById('tk-'+id).value.trim();
       const err = document.getElementById('err-'+id); err.classList.add('hidden');
       if(!t) { err.innerText = "*Token belum diisi!"; err.classList.remove('hidden'); return; }
@@ -1716,8 +1719,7 @@
 
     // =============================================
     // MODE SQL MANUAL: deteksi otomatis GAS dimatikan.
-    // Siswa klik tombol manual "SUDAH SUBMIT" -> tampilkanOverlaySelesai().
-    // Nilai masuk ke guru via Google Form masing-masing.
+    // Siswa mengakhiri sesi secara manual setelah selesai pada link ujian.
     // =============================================
 
     function startDeteksiSubmit() {} // noop: soal dikerjakan di Chrome, selesai manual via tombol hijau
@@ -1736,7 +1738,7 @@
     }
 
     async function selesaiMengerjakan() {
-      if(!confirm('Yakin sudah klik Submit/Kirim di Google Form?\n\nSesi berakhir dan tidak bisa kembali.')) return;
+      if(!confirm('Yakin jawaban sudah dikirim atau ujian sudah selesai?\n\nSesi berakhir dan tidak bisa kembali.')) return;
       const btn = document.querySelector('#overlay-selesai button');
       if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...'; btn.disabled = true; }
 
@@ -1781,7 +1783,7 @@
             <i class="fas fa-check text-white text-5xl"></i>
           </div>
           <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
-          <p class="text-slate-300 text-lg mb-2">Pastikan sudah klik Submit/Kirim di Google Form.</p>
+          <p class="text-slate-300 text-lg mb-2">Pastikan jawaban sudah dikirim atau ujian sudah diselesaikan.</p>
           <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
           <button onclick="selesaiMengerjakan()"
                   class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
@@ -1809,13 +1811,11 @@
             if (distance < 0) {
                 clearInterval(timerInterval); 
                 document.getElementById("waktu-mundur").innerHTML = "00:00";
-                document.getElementById("timer-box").className = "bg-red-600 text-white px-4 py-2 rounded-xl font-mono font-black text-lg shadow-inner border border-red-800 animate-pulse";
+                document.getElementById("timer-box").className = "h-10 flex items-center bg-red-600 text-white px-2 sm:px-4 rounded-xl font-mono font-black text-base sm:text-lg shadow-inner border border-red-800 animate-pulse";
                 document.getElementById("time-blocker").style.display = "flex";
-                // Catat selesai ke backend
-                if(sessionUser && mapelAktif) {
-                  callAPI({action:'selesaiUjian', nis:sessionUser.nis, nama:sessionUser.nama, kelas:sessionUser.kelas, mapel:mapelAktif});
-                }
-                alert("🚨 WAKTU HABIS! 🚨\n\nSegera scroll ke paling bawah form ujian dan klik tombol SUBMIT/KIRIM!");
+                // Jangan akhiri sesi otomatis. Siswa masih harus menyelesaikan ujian,
+                // lalu menekan tombol selesai agar status backend tercatat satu kali.
+                alert("WAKTU HABIS!\n\nBuka kembali link ujian di Chrome, selesaikan atau kirim jawaban, lalu kembali ke aplikasi.");
                 return;
             }
 

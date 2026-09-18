@@ -84,16 +84,14 @@ class MainActivity : AppCompatActivity() {
       try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
     }
 
-    // Tombol "BUKA SOAL DI CHROME": Google Form dibuka di Chrome (Custom Tab) supaya memakai
-    // profil & akun Google HP. Ini satu-satunya cara: cookie store WebView terpisah dari Chrome,
-    // dan Google memblokir sign-in di WebView (disallowed_useragent).
+    // Link ujian dibuka di Chrome Custom Tab. Semua host HTTPS diizinkan agar aplikasi
+    // dapat dipakai sebagai pengunci untuk Google Form, LMS, atau platform ujian lain.
     // Return false = JS pakai fallback (window.open / navigasi penuh).
     @JavascriptInterface
     fun openForm(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
-      val host = u.host ?: return false
+      if (u.host.isNullOrBlank()) return false
       if ((u.scheme ?: "") != "https") return false
-      if (formHosts.none { host == it || host.endsWith(".$it") } && loginHosts.none { host == it || host.endsWith(".$it") }) return false
       val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
       return try {
         formTab = true
@@ -136,7 +134,6 @@ class MainActivity : AppCompatActivity() {
     private const val PREFS = "cbt_lock"
     private const val CHROME_PKG = "com.android.chrome"
     private val loginHosts = listOf("myaccount.google.com", "accounts.google.com")
-    private val formHosts = listOf("docs.google.com", "forms.gle", "forms.google.com")
     // Urutan preferensi browser yang mendukung TWA / Custom Tabs
     private val tabPackages = listOf("com.android.chrome", "com.chrome.beta", "com.android.chrome.beta", "com.chrome.dev")
   }
