@@ -149,21 +149,42 @@ function unlockSeed(): int { return intdiv(time(), unlockInterval() * 60); }
 function entryOK(string $v): bool { return $v === '' || preg_match('/^\d{4,12}$/', $v) === 1; }
 function baseFormUrl(string $url): string {
   $p = parse_url(trim($url));
-  if (!$p || ($p['host'] ?? '') !== 'docs.google.com') return '';
+  if (!$p || strtolower((string)($p['host'] ?? '')) !== 'docs.google.com') return '';
   $path = $p['path'] ?? '';
   if (strpos($path, '/forms/') === false) return '';
   $m = [];
   if (!preg_match('#/forms/d(?:/e)?/([A-Za-z0-9_-]+)#', $path, $m)) return '';
   return 'https://docs.google.com/forms/d/e/' . $m[1] . '/viewform';
 }
+function isFormShortUrl(string $url): bool {
+  $p = parse_url(trim($url));
+  if (!$p || strtolower((string)($p['scheme'] ?? '')) !== 'https') return false;
+  $host = strtolower((string)($p['host'] ?? ''));
+  return in_array($host, ['forms.gle', 's.id', 'www.s.id'], true);
+}
 function resolveFormUrl(string $url): string {
-  if (!function_exists('curl_init')) return '';
-  $ch = curl_init($url);
-  curl_setopt_array($ch, [CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_TIMEOUT => 10, CURLOPT_USERAGENT => 'Mozilla/5.0']);
-  curl_exec($ch);
-  $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-  curl_close($ch);
-  return baseFormUrl($eff);
+  if (!function_exists('curl_init') || !isFormShortUrl($url)) return '';
+  foreach ([true, false] as $headOnly) {
+    $ch = curl_init($url);
+    $opts = [CURLOPT_NOBODY => $headOnly, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_TIMEOUT => 10, CURLOPT_USERAGENT => 'Mozilla/5.0'];
+    if (!$headOnly) $opts[CURLOPT_RANGE] = '0-0';
+    if (defined('CURLOPT_PROTOCOLS') && defined('CURLPROTO_HTTPS')) $opts[CURLOPT_PROTOCOLS] = CURLPROTO_HTTPS;
+    if (defined('CURLOPT_REDIR_PROTOCOLS') && defined('CURLPROTO_HTTPS')) $opts[CURLOPT_REDIR_PROTOCOLS] = CURLPROTO_HTTPS;
+    curl_setopt_array($ch, $opts);
+    curl_exec($ch);
+    $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+    curl_close($ch);
+    $base = baseFormUrl($eff);
+    if ($base !== '') return $base;
+  }
+  return '';
+}
+function normalizeFormUrl(string $url): string {
+  $url = trim($url);
+  if ($url === '') return '';
+  if (strpos($url, 'TEMPLATE_') !== false) return strpos($url, 'https://docs.google.com/forms/') === 0 ? $url : '';
+  if (baseFormUrl($url) !== '') return $url;
+  return isFormShortUrl($url) ? resolveFormUrl($url) : '';
 }
 function buildPrefill(string $base, array $entries, array $vals): string {
   $q = [];
@@ -549,6 +570,9 @@ try {
 
     case 'editMapel': {
       $db = db();
+      $formInput = trim((string)($req['formUrl'] ?? ''));
+      $formUrl = $formInput === '' ? '' : normalizeFormUrl($formInput);
+      if ($formInput !== '' && $formUrl === '') fail('Link harus Google Form atau shortlink forms.gle/s.id yang menuju Google Form.');
       $klsRaw = trim((string)($req['kelas'] ?? ''));
       $klsParts = $klsRaw === '' ? [] : array_map(fn($k) => normKelas($k), explode(',', $klsRaw));
       $klsParts = array_values(array_filter($klsParts, fn($v) => $v !== ''));
@@ -560,7 +584,7 @@ try {
       $db->prepare('UPDATE exams SET mapel = COALESCE(NULLIF(?, ""), mapel), kelas_target = COALESCE(NULLIF(?, ""), kelas_target), token = COALESCE(NULLIF(?, ""), token), status = ?, tanggal = NULLIF(?, ""), mulai = NULLIF(?, ""), selesai = NULLIF(?, ""), durasi = ?, form_url = COALESCE(NULLIF(?, ""), form_url) WHERE id = ?')->execute([
         (string)($req['mapel'] ?? ''), $kls, (string)($req['examToken'] ?? ''),
         (string)($req['status'] ?? 'Aktif'), (string)($req['tgl'] ?? ''), (string)($req['mulai'] ?? ''), (string)($req['selesai'] ?? ''),
-        (int)($req['durasi'] ?? 90), (string)($req['formUrl'] ?? ''), (string)($req['id'] ?? ''),
+        (int)($req['durasi'] ?? 90), $formUrl, (string)($req['id'] ?? ''),
       ]);
       try {
         $ens = [trim((string)($req['entryNis'] ?? '')), trim((string)($req['entryNama'] ?? '')), trim((string)($req['entryKelas'] ?? '')), trim((string)($req['entryMapel'] ?? ''))];
@@ -570,23 +594,16 @@ try {
           $db->prepare('UPDATE exams SET entry_nis = NULLIF(?, ""), entry_nama = NULLIF(?, ""), entry_kelas = NULLIF(?, ""), entry_mapel = NULLIF(?, "") WHERE id = ?')->execute([$ens[0], $ens[1], $ens[2], $ens[3], (string)($req['id'] ?? '')]);
         }
       } catch (Throwable $e) { if (strpos($e->getMessage(), 'Entry ID') !== false) fail($e->getMessage()); }
-      out(['sukses' => true, 'pesan' => 'Jadwal Mapel (' . ($req['id'] ?? '') . ') berhasil diupdate!']);
+      out(['sukses' => true, 'pesan' => 'Jadwal Mapel (' . ($req['id'] ?? '') . ') berhasil diupdate!', 'formUrl' => $formUrl]);
     }
 
     case 'setFormUrl': {
       $idU = strtoupper(trim((string)($req['idUjian'] ?? '')));
-      $rawUrl = trim((string)($req['formUrl'] ?? ''));
-      if ($idU === '' || $rawUrl === '') fail('Isi ID ujian dan URL Form!');
-      if (strpos($rawUrl, 'TEMPLATE_') === false) {
-        if (baseFormUrl($rawUrl) === '') {
-          $ph = parse_url($rawUrl);
-          if (($ph['host'] ?? '') === 'forms.gle') {
-            $canon = resolveFormUrl($rawUrl);
-            if ($canon === '') fail('Link forms.gle tidak bisa dibuka server. Pakai link docs.google.com panjang.');
-            $rawUrl = $canon;
-          } else fail('URL harus Google Form (docs.google.com/forms/... atau forms.gle).');
-        }
-      } elseif (strpos($rawUrl, 'https://docs.google.com/forms/') !== 0) fail('URL harus Google Form (https://docs.google.com/forms/...).');
+      $formInput = trim((string)($req['formUrl'] ?? ''));
+      if ($idU === '' || $formInput === '') fail('Isi ID ujian dan URL Form!');
+      $fromShort = isFormShortUrl($formInput);
+      $rawUrl = normalizeFormUrl($formInput);
+      if ($rawUrl === '') fail('Link harus Google Form atau shortlink forms.gle/s.id yang menuju Google Form.');
       $ens = ['entry_nis' => trim((string)($req['entryNis'] ?? '')), 'entry_nama' => trim((string)($req['entryNama'] ?? '')), 'entry_kelas' => trim((string)($req['entryKelas'] ?? '')), 'entry_mapel' => trim((string)($req['entryMapel'] ?? ''))];
       foreach ($ens as $k => $v) if (!entryOK($v)) fail("Entry ID $k harus angka 4-12 digit atau kosong.");
       $cols = '';
@@ -598,7 +615,8 @@ try {
       }
       audit($s['nama'] ?? $s['nis'] ?? '', 'SET_FORM', $idU);
       $warn = (strpos($rawUrl, 'TEMPLATE_') !== false) ? ' (mode lama TEMPLATE_*)' : ((array_sum(array_map(fn($v) => $v === '' ? 0 : 1, $ens)) === 0) ? ' — entry ID kosong, Form terbuka tanpa prefill.' : ' — prefill aktif.');
-      out(['sukses' => true, 'pesan' => 'Link Form tersimpan' . $warn]);
+      $prefix = $fromShort ? 'Shortlink berhasil diverifikasi dan diubah ke URL Google Form asli. ' : '';
+      out(['sukses' => true, 'pesan' => $prefix . 'Link Form tersimpan' . $warn, 'formUrl' => $rawUrl]);
     }
 
     case 'detectFormEntries': {

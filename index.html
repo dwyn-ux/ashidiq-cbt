@@ -392,7 +392,7 @@
               <p class="font-bold mb-1">Cara pakai (guru cukup tempel link biasa):</p>
               <ul class="list-disc list-inside space-y-1 text-xs">
                 <li>Guru buat Google Form, 4 soal pertama wajib berjudul <b>NIS</b>, <b>NAMA</b>, <b>KELAS</b>, <b>MAPEL</b> (teks pendek, wajib isi).</li>
-                <li>Tempel link <code class="bg-blue-100 px-1 rounded font-mono">.../viewform</code> biasa di bawah, klik <b>Deteksi Otomatis</b>, lalu Simpan.</li>
+                <li>Tempel link Google Form atau shortlink <code class="bg-blue-100 px-1 rounded font-mono">s.id/...</code>, klik <b>Deteksi Otomatis</b>, lalu Simpan.</li>
                 <li>Siswa login (NIS+password) lalu MULAI — NIS/Nama/Kelas/Mapel terisi sendiri di Form. Siswa tetap klik Submit sendiri.</li>
               </ul>
             </div>
@@ -406,8 +406,8 @@
                 <select id="linkform-id" onchange="onLinkFormChange()" class="w-full p-3 border rounded-xl font-bold outline-none bg-white"><option value="">Memuat daftar ujian...</option></select>
               </div>
               <div>
-                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM (LINK BIASA)</label>
-                <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/..." class="w-full p-3 border rounded-xl outline-none text-sm">
+                <label class="text-[10px] font-bold text-slate-400 ml-1">URL GOOGLE FORM / SHORTLINK</label>
+                <input type="url" id="linkform-url" placeholder="https://docs.google.com/forms/... atau https://s.id/..." class="w-full p-3 border rounded-xl outline-none text-sm">
               </div>
               <div id="linkform-warn" class="hidden text-xs font-bold rounded-xl p-3"></div>
               <div class="grid grid-cols-2 gap-3">
@@ -639,8 +639,8 @@
             </div>
             <!-- Link Google Form + entry IDs -->
             <div>
-              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM (LINK BIASA)</label>
-              <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/...">
+              <label class="text-[10px] font-bold text-slate-400 ml-1">LINK GOOGLE FORM / SHORTLINK</label>
+              <input type="url" id="edit-formurl" class="w-full p-3 border rounded-xl focus:ring-2 outline-none bg-slate-50 text-sm" placeholder="https://docs.google.com/forms/... atau https://s.id/...">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div><label class="text-[10px] font-bold text-slate-400 ml-1">ENTRY NIS</label><input type="text" id="edit-enis" class="w-full p-3 border rounded-xl font-mono text-sm bg-slate-50" placeholder="otomatis"></div>
@@ -1011,14 +1011,34 @@
       };
     }
     function validEntry(v) { return v === '' || /^\d{4,12}$/.test(v); }
+    function formInputType(url) {
+      try {
+        const u = new URL(url);
+        if(u.protocol !== 'https:') return '';
+        const host = u.hostname.toLowerCase();
+        if(host === 'docs.google.com' && u.pathname.indexOf('/forms/') === 0) return 'google';
+        if(host === 'forms.gle' || host === 's.id' || host === 'www.s.id') return 'short';
+      } catch(e) {}
+      return '';
+    }
     async function deteksiEntry() {
       const id = document.getElementById('linkform-id').value;
       if(!id) return alert('Pilih ujian dulu.');
+      const urlInput = document.getElementById('linkform-url');
+      const url = urlInput.value.trim();
+      if(!url || !formInputType(url)) return alert('Tempel link Google Form, forms.gle, atau s.id yang valid dulu.');
       const btn = document.getElementById('btn-detect');
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...'; btn.disabled = true;
+      const saved = await callAPI(Object.assign({ action: 'setFormUrl', idUjian: id, formUrl: url }, entryVals()));
+      if(!saved || !saved.sukses) {
+        btn.innerHTML = '<i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS'; btn.disabled = false;
+        warnLink((saved && saved.pesan) || 'Link tidak dapat diverifikasi.', false);
+        return;
+      }
+      if(saved.formUrl) urlInput.value = saved.formUrl;
       const res = await callAPI({ action: 'detectFormEntries', idUjian: id });
       btn.innerHTML = '<i class="fas fa-magic mr-2"></i> DETEKSI OTOMATIS'; btn.disabled = false;
-      if(!res.sukses) { warnLink(res.pesan || 'Deteksi gagal. Isi entry ID manual.', false); return; }
+      if(!res || !res.sukses) { warnLink((res && res.pesan) || 'Deteksi gagal. Isi entry ID manual.', false); return; }
       const e = res.entries || {};
       document.getElementById('entry-nis').value = e.entry_nis || '';
       document.getElementById('entry-nama').value = e.entry_nama || '';
@@ -1029,7 +1049,9 @@
     }
     function previewPrefill() {
       const url = document.getElementById('linkform-url').value.trim();
-      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('Tempel URL Google Form dulu (docs.google.com atau forms.gle)!');
+      const type = formInputType(url);
+      if(!type) return alert('Tempel link Google Form, forms.gle, atau s.id yang valid dulu.');
+      if(type === 'short') return alert('Klik Deteksi Otomatis atau Simpan Link dulu agar shortlink diverifikasi dan diubah ke URL Google Form asli.');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
       const q = [];
@@ -1045,7 +1067,7 @@
       const url = document.getElementById('linkform-url').value.trim();
       if(!id) return alert('Pilih ujian dulu!');
       if(!url) return alert('Isi URL Form!');
-      if(url.indexOf('https://docs.google.com/forms/') !== 0 && url.indexOf('https://forms.gle/') !== 0) return alert('URL harus Google Form (docs.google.com/forms/... atau forms.gle)!');
+      if(!formInputType(url)) return alert('URL harus Google Form, forms.gle, atau s.id yang menuju Google Form.');
       const e = entryVals();
       for(const k of Object.keys(e)) if(!validEntry(e[k])) return alert('Entry ID harus angka 4-12 digit atau kosong.');
       if(url.indexOf('TEMPLATE_') < 0 && !e.entryNis && !e.entryNama && !e.entryKelas) {
@@ -1055,7 +1077,12 @@
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
       const res = await callAPI(Object.assign({ action: 'setFormUrl', idUjian: id, formUrl: url }, e));
       alert(res.pesan || 'Tersimpan.'); btn.innerHTML = '<i class="fas fa-save mr-2"></i> SIMPAN LINK'; btn.disabled = false;
-      if(res.sukses) warnLink(res.pesan, true);
+      if(res.sukses) {
+        if(res.formUrl) document.getElementById('linkform-url').value = res.formUrl;
+        const item = (cachedMapelList || []).find(x => String(x.id) === String(id));
+        if(item && res.formUrl) item.form_url = res.formUrl;
+        warnLink(res.pesan, true);
+      }
     }
 
     let cachedKelasList = null;
@@ -1136,6 +1163,7 @@
           entryMapel: document.getElementById('edit-emapel').value.trim()
         };
         if(!payload.kelas) { alert('Pilih minimal 1 kelas target!'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
+        if(payload.formUrl.trim() && !formInputType(payload.formUrl.trim())) { alert('Link harus Google Form, forms.gle, atau s.id yang menuju Google Form.'); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false; return; }
         const res = await callAPI(payload);
         alert(res.pesan); btn.innerHTML = 'SIMPAN PERUBAHAN'; btn.disabled = false;
         if(res.sukses) { document.getElementById('modal-edit-mapel').classList.add('hidden'); loadDataUjian(); }
