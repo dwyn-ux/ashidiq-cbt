@@ -523,15 +523,15 @@
       </div>
       
       <div id="siswa-tahap-ujian" class="hidden h-full flex flex-col">
-        <div class="flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
+        <div class="sticky top-0 flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
           <div class="flex items-center gap-2 sm:gap-4 min-w-0">
              <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
               <div class="min-w-0"><h2 class="font-black text-blue-600 uppercase italic truncate" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
               <p class="text-[10px] font-bold text-slate-500 truncate" id="identitas-ujian"></p></div>
           </div>
           <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-            <button type="button" onclick="refreshHalamanUjian()" title="Refresh tampilan ujian" aria-label="Refresh tampilan ujian" class="w-10 h-10 shrink-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition"><i class="fas fa-sync-alt"></i></button>
-            <button onclick="mintaPintu()" title="Pintu darurat: minta kode ke proktor bila terkendala login Gmail/2FA" aria-label="Bantuan" class="h-10 shrink-0 bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 rounded-xl font-black text-xs border border-purple-200 transition"><i class="fas fa-life-ring sm:mr-1"></i><span class="hidden sm:inline"> BANTUAN</span></button>
+            <button type="button" onclick="refreshSoalUjian()" title="Refresh soal di Chrome" aria-label="Refresh soal" class="h-10 shrink-0 flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 rounded-xl border border-slate-200 transition font-black text-xs"><i class="fas fa-sync-alt"></i><span class="hidden sm:inline"> REFRESH</span></button>
+            <button type="button" onclick="tampilkanOverlaySelesai()" title="Selesaikan ujian" aria-label="Selesaikan ujian" class="h-10 shrink-0 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl font-black text-xs transition"><i class="fas fa-flag-checkered"></i><span class="hidden sm:inline"> SELESAI</span></button>
             <div id="timer-box" class="h-10 flex items-center bg-blue-100 text-blue-700 px-2 sm:px-4 rounded-xl font-mono font-black text-base sm:text-lg shadow-inner border border-blue-200 transition-colors duration-300">
                <i class="fas fa-stopwatch mr-2 hidden sm:inline"></i><span id="waktu-mundur">--:--</span>
             </div>
@@ -570,23 +570,24 @@
             </div>
             <!-- ✅ OVERLAY SELESAI SUBMIT -->
             <div id="overlay-selesai" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); z-index:60; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(8px);">
-              <div class="text-center px-8">
+              <div class="text-center px-8 w-full max-w-md">
                 <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
                   <i class="fas fa-check text-white text-5xl"></i>
                 </div>
                 <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
                 <p class="text-slate-300 text-lg mb-2">Pastikan jawaban sudah dikirim atau ujian sudah diselesaikan pada link soal.</p>
-                <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
-                <button onclick="selesaiMengerjakan()" 
-                        class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
+                <p class="text-red-400 font-black mb-4">Tombol ini mengakhiri sesi, jatah 1x, tidak bisa kembali.</p>
+                <p class="text-slate-300 text-sm font-bold mb-2">Verifikasi: ketik <span class="text-yellow-400 font-black tracking-widest">SELESAI</span> untuk mengakhiri</p>
+                <input type="text" id="konfirmasi-selesai" oninput="cekKonfirmasiSelesai()" placeholder="Ketik SELESAI" autocomplete="off"
+                       class="w-full px-4 py-3 rounded-xl text-center font-black tracking-widest uppercase outline-none border-2 border-slate-600 focus:border-green-500 mb-4">
+                <button id="btn-konfirmasi-selesai" onclick="selesaiMengerjakan()" disabled
+                        class="bg-slate-500 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all flex items-center gap-3 mx-auto opacity-50 cursor-not-allowed">
                   <i class="fas fa-flag-checkered"></i> SELESAI MENGERJAKAN
                 </button>
                 <p class="text-slate-500 text-xs mt-6">Timer masih berjalan sampai kamu klik tombol ini</p>
               </div>
             </div>
         </div>
-        <button onclick="tampilkanOverlaySelesai()" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-lg transition tracking-wider"><i class="fas fa-flag-checkered mr-2"></i> UJIAN SELESAI — AKHIRI SESI</button>
-        <p class="text-center text-xs text-slate-400 mt-2">Klik setelah jawaban sudah dikirim atau ujian pada link soal sudah selesai.</p>
       </div>
     </main>
   </section>
@@ -1510,7 +1511,6 @@
     function refreshSoalUjian() {
       const url = sessionStorage.getItem('cbt_link_soal') || '';
       if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
-      if (!confirm('Refresh dan buka ulang soal di Chrome?\n\nPastikan jawaban terakhir sudah tersimpan. Timer tetap berjalan.')) return;
       bukaFormDiChrome();
     }
 
@@ -1725,28 +1725,44 @@
     function startDeteksiSubmit() {} // noop: soal dikerjakan di Chrome, selesai manual via tombol hijau
 
     function tampilkanOverlaySelesai() {
-      // Jangan tampilkan kalau sudah selesai atau belum mulai ujian
       const ujianSection = document.getElementById('siswa-tahap-ujian');
       if(!ujianSection || ujianSection.classList.contains('hidden')) return;
       const overlay = document.getElementById('overlay-selesai');
       if(overlay.style.display === 'flex') return;
       overlay.style.display = 'flex';
-
-      // Hentikan deteksi violation — siswa sudah submit, wajar kalau fokus kemana-mana
-      isExamLocked = false; // Jangan lock lagi
+      const inp = document.getElementById('konfirmasi-selesai');
+      if(inp) { inp.value = ''; setTimeout(() => { try { inp.focus(); } catch(e) {} }, 100); }
+      cekKonfirmasiSelesai();
+      isExamLocked = false;
       pelanggaran  = 0;
     }
 
+    function cekKonfirmasiSelesai() {
+      const inp = document.getElementById('konfirmasi-selesai');
+      const btn = document.getElementById('btn-konfirmasi-selesai');
+      if(!inp || !btn) return;
+      const ok = inp.value.trim().toUpperCase() === 'SELESAI';
+      btn.disabled = !ok;
+      btn.className = ok
+        ? 'bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto'
+        : 'bg-slate-500 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all flex items-center gap-3 mx-auto opacity-50 cursor-not-allowed';
+    }
+
+    let sedangMenyelesaikan = false;
     async function selesaiMengerjakan() {
-      if(!confirm('Yakin jawaban sudah dikirim atau ujian sudah selesai?\n\nSesi berakhir dan tidak bisa kembali.')) return;
-      const btn = document.querySelector('#overlay-selesai button');
+      if(sedangMenyelesaikan) return;
+      const inp = document.getElementById('konfirmasi-selesai');
+      if(!inp || inp.value.trim().toUpperCase() !== 'SELESAI') { alert('Verifikasi gagal! Ketik SELESAI dulu.'); return; }
+      if(!confirm('Yakin jawaban sudah dikirim?\n\nSesi berakhir, jatah 1x hangus, tidak bisa kembali.')) return;
+      sedangMenyelesaikan = true;
+      const btn = document.getElementById('btn-konfirmasi-selesai');
       if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menyimpan...'; btn.disabled = true; }
 
-      // Catat selesai ke backend
       let telat = false;
-      if(sessionUser && mapelAktif) {
-        const r = await callAPI({ action: 'selesaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, mapel: mapelAktif });
+      if(sessionUser && idUjianAktif) {
+        const r = await callAPI({ action: 'selesaiUjian', idUjian: idUjianAktif, nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, mapel: mapelAktif });
         telat = !!(r && r.terlambat);
+        if(r && r.sukses) { try { localStorage.setItem('cbt_selesai_' + idUjianAktif + '_' + sessionUser.nis, '1'); } catch(e) {} }
       }
 
       // Bersihkan session ujian
@@ -1776,17 +1792,20 @@
         </div>`;
 
       setTimeout(() => {
-        // Kembali ke halaman pilih mapel (tidak logout)
+        sedangMenyelesaikan = false;
         document.getElementById('overlay-selesai').style.display = 'none';
-        document.getElementById('overlay-selesai').innerHTML = `<div class="text-center px-8">
+        document.getElementById('overlay-selesai').innerHTML = `<div class="text-center px-8 w-full max-w-md">
           <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
             <i class="fas fa-check text-white text-5xl"></i>
           </div>
           <h2 class="text-3xl font-black text-white mb-3 uppercase tracking-wide">Jawaban Terkirim!</h2>
           <p class="text-slate-300 text-lg mb-2">Pastikan jawaban sudah dikirim atau ujian sudah diselesaikan.</p>
-          <p class="text-red-400 font-black mb-8">Tombol ini mengakhiri sesi, tidak bisa kembali.</p>
-          <button onclick="selesaiMengerjakan()"
-                  class="bg-green-500 hover:bg-green-600 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-105 flex items-center gap-3 mx-auto">
+          <p class="text-red-400 font-black mb-4">Tombol ini mengakhiri sesi, jatah 1x, tidak bisa kembali.</p>
+          <p class="text-slate-300 text-sm font-bold mb-2">Verifikasi: ketik <span class="text-yellow-400 font-black tracking-widest">SELESAI</span> untuk mengakhiri</p>
+          <input type="text" id="konfirmasi-selesai" oninput="cekKonfirmasiSelesai()" placeholder="Ketik SELESAI" autocomplete="off"
+                 class="w-full px-4 py-3 rounded-xl text-center font-black tracking-widest uppercase outline-none border-2 border-slate-600 focus:border-green-500 mb-4">
+          <button id="btn-konfirmasi-selesai" onclick="selesaiMengerjakan()" disabled
+                  class="bg-slate-500 text-white font-black text-xl px-12 py-5 rounded-2xl shadow-2xl transition-all flex items-center gap-3 mx-auto opacity-50 cursor-not-allowed">
             <i class="fas fa-flag-checkered"></i> SELESAI MENGERJAKAN
           </button>
           <p class="text-slate-500 text-xs mt-6">Timer masih berjalan sampai kamu klik tombol ini</p>

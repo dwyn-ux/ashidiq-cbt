@@ -53,6 +53,39 @@ function audit(?string $actor, string $action, string $detail = ''): void {
   try { db()->prepare('INSERT INTO audit_logs (actor, action, detail) VALUES (?,?,?)')->execute([$actor, $action, $detail]); } catch (Throwable $e) {}
 }
 
+// The student row serializes attempt mutations, including requests from other devices.
+// Archived sessions remain part of an attempt: clearing the dashboard never grants a retry.
+function lockStudentAttempt(PDO $db, string $nis): void {
+  $db->beginTransaction();
+  $st = $db->prepare('SELECT nis FROM students WHERE nis = ? FOR UPDATE');
+  $st->execute([$nis]);
+  if (!$st->fetch()) { $db->rollBack(); fail('Siswa tidak ditemukan.', 'INVALID_STUDENT'); }
+}
+function completedAttempt(PDO $db, string $nis, string $id): ?array {
+  $st = $db->prepare("SELECT id, exam_id, end_ms, status FROM sessions WHERE nis = ? AND exam_id = ? AND status IN ('Selesai', 'Terlambat') ORDER BY id LIMIT 1");
+  $st->execute([$nis, $id]);
+  return $st->fetch() ?: null;
+}
+function openAttempt(PDO $db, string $nis, string $id): ?array {
+  // Old installations may have duplicate rows; retain the earliest original timer.
+  $st = $db->prepare("SELECT id, exam_id, end_ms, status FROM sessions WHERE nis = ? AND exam_id = ? AND status IN ('Sedang Mengerjakan', 'Di-Kick') ORDER BY id LIMIT 1");
+  $st->execute([$nis, $id]);
+  return $st->fetch() ?: null;
+}
+function sessionExamId(PDO $db, array $req, string $nis): string {
+  $id = strtoupper(trim((string)($req['idUjian'] ?? '')));
+  if ($id !== '') return $id;
+  // Older clients sent only a subject name. Never guess between exams sharing a name.
+  $sql = "SELECT DISTINCT exam_id FROM sessions WHERE nis = ? AND status IN ('Sedang Mengerjakan', 'Di-Kick', 'Selesai', 'Terlambat')";
+  $args = [$nis];
+  if (trim((string)($req['mapel'] ?? '')) !== '') { $sql .= ' AND mapel = ?'; $args[] = (string)$req['mapel']; }
+  $st = $db->prepare($sql . ' LIMIT 2');
+  $st->execute($args);
+  $ids = $st->fetchAll(PDO::FETCH_COLUMN);
+  if (count($ids) === 1) return (string)$ids[0];
+  fail('ID ujian wajib dikirim. Muat ulang aplikasi lalu pilih ujian.', 'EXAM_ID_REQUIRED');
+}
+
 // ---------- auth ----------
 function login(string $u, string $p, string $r) {
   $db = db();
@@ -279,9 +312,16 @@ try {
 
     case 'getMapel': {
       $kelas = normKelas((string)($s['kelas'] ?? $req['kelas'] ?? ''));
+      $nisQ = (string)($s['nis'] ?? $req['nis'] ?? '');
+      $done = [];
+      if ($nisQ !== '') {
+        try { $done = db()->prepare("SELECT DISTINCT exam_id FROM sessions WHERE nis = ? AND status IN ('Selesai', 'Terlambat')"); $done->execute([$nisQ]); $done = $done->fetchAll(PDO::FETCH_COLUMN) ?: []; }
+        catch (Throwable $e) { $done = []; }
+      }
       $rows = db()->query("SELECT id, mapel, kelas_target, durasi, tanggal, mulai, selesai FROM exams WHERE status = 'Aktif'")->fetchAll();
       $out = [];
       foreach ($rows as $r) {
+        if (in_array($r['id'], $done, true)) continue;
         $targets = array_map(fn($k) => trim($k), explode(',', (string)$r['kelas_target']));
         $match = false;
         foreach ($targets as $t) if (kelasCocok($t, $kelas)) { $match = true; break; }
@@ -308,6 +348,8 @@ try {
       $nis = (string)($s['nis'] ?? $req['nis'] ?? '');
       $nama = (string)($s['nama'] ?? $req['nama'] ?? '');
       $kelas = (string)($s['kelas'] ?? $req['kelas'] ?? '');
+      $done0 = completedAttempt($db, $nis, $id);
+      if ($done0) fail('Jatah 1x sudah dipakai. Ujian ini sudah selesai, tidak bisa diulang.', 'ALREADY_FINISHED');
       // ✅ RE-ENTRY LOCK: app keluar saat ujian (Home/Overview/recent apps) → wajib kode unlock admin untuk lanjut
       if (!empty($req['reentryCode'])) {
         $inp = strtoupper(trim((string)$req['reentryCode']));
@@ -348,23 +390,21 @@ try {
     case 'selesaiUjian': {
       $db = db();
       $nis = (string)($s['nis'] ?? $req['nis'] ?? '');
-      $mapel = (string)($req['mapel'] ?? '');
-      $st = $db->prepare("SELECT id, end_ms FROM sessions WHERE nis = ? AND mapel = ? AND status = 'Sedang Mengerjakan' AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
-      $st->execute([$nis, $mapel]);
+      $id = sessionExamId($db, $req, $nis);
+      $st = $db->prepare("SELECT id, end_ms, status FROM sessions WHERE nis = ? AND exam_id = ? AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
+      $st->execute([$nis, $id]);
       $row = $st->fetch();
+      if (!$row) fail('Tidak ada sesi aktif untuk ujian ini.', 'NO_SESSION');
+      if (in_array($row['status'], ['Selesai', 'Terlambat'], true)) fail('Jatah 1x sudah dipakai. Ujian ini sudah selesai.', 'ALREADY_FINISHED');
       $telat = false;
-      if ($row) {
-        $end = (int)$row['end_ms'];
-        if ($end > 0 && (int)(microtime(true) * 1000) > $end + 60000) {
-          $db->prepare('UPDATE sessions SET status = "Terlambat" WHERE id = ?')->execute([$row['id']]);
-          $telat = true;
-        } else {
-          $db->prepare('UPDATE sessions SET status = "Selesai" WHERE id = ?')->execute([$row['id']]);
-        }
+      $end = (int)($row['end_ms'] ?? 0);
+      if ($end > 0 && (int)(microtime(true) * 1000) > $end + 60000) {
+        $db->prepare('UPDATE sessions SET status = "Terlambat" WHERE id = ?')->execute([$row['id']]);
+        $telat = true;
       } else {
-        $db->prepare('INSERT INTO sessions (exam_id, nis, nama, kelas, mapel, status) VALUES ((SELECT id FROM exams WHERE mapel = ? LIMIT 1),?,?,?,?,"Selesai")')->execute([$mapel, $nis, (string)($s['nama'] ?? $req['nama'] ?? ''), (string)($s['kelas'] ?? $req['kelas'] ?? ''), $mapel]);
+        $db->prepare('UPDATE sessions SET status = "Selesai" WHERE id = ?')->execute([$row['id']]);
       }
-      audit($nis, 'EXAM_FINISH', $mapel . ($telat ? ' TERLAMBAT' : ''));
+      audit($nis, 'EXAM_FINISH', $id . ($telat ? ' TERLAMBAT' : ''));
       out($telat ? ['sukses' => true, 'terlambat' => true, 'pesan' => 'Waktu habis — tercatat TERLAMBAT.'] : ['sukses' => true]);
     }
 
