@@ -350,6 +350,33 @@ try {
       $kelas = (string)($s['kelas'] ?? $req['kelas'] ?? '');
       $done0 = completedAttempt($db, $nis, $id);
       if ($done0) fail('Jatah 1x sudah dipakai. Ujian ini sudah selesai, tidak bisa diulang.', 'ALREADY_FINISHED');
+      $stK = $db->prepare("SELECT id, end_ms FROM sessions WHERE exam_id = ? AND nis = ? AND status = 'Di-Kick' AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
+      $stK->execute([$id, $nis]);
+      $kicked = $stK->fetch() ?: null;
+      if ($kicked) {
+        $inpK = strtoupper(trim((string)($req['reentryCode'] ?? '')));
+        if ($inpK === '') fail('Akun ini dihentikan admin. Minta KODE UNLOCK ke pengawas untuk masuk lagi.', 'KICKED_REQUIRED');
+        if (!($inpK === kodeFromSeed_(unlockSeed()) || $inpK === kodeFromSeed_(unlockSeed() - 1))) fail('KODE UNLOCK salah/kadaluarsa. Minta kode terbaru ke pengawas.', 'KICKED_INVALID');
+        $nowMs = (int)(microtime(true) * 1000);
+        $db->prepare('UPDATE sessions SET status = "Sedang Mengerjakan", last_seen = ? WHERE id = ?')->execute([$nowMs, $kicked['id']]);
+        $st2 = $db->prepare('SELECT * FROM exams WHERE id = ?');
+        $st2->execute([$id]);
+        $ex = $st2->fetch();
+        $mkLinkK = function() use ($ex, $nis, $nama, $kelas): string {
+          $raw = (string)$ex['form_url'];
+          if (strpos($raw, 'TEMPLATE_') !== false) {
+            $link = str_replace('TEMPLATE_NIS', rawurlencode($nis), $raw);
+            $link = str_replace('TEMPLATE_NAMA', rawurlencode($nama), $link);
+            return str_replace('TEMPLATE_KELAS', rawurlencode($kelas), $link);
+          }
+          $base = baseFormUrl($raw);
+          if ($base === '' && isFormShortUrl($raw)) $base = resolveFormUrl($raw);
+          if ($base === '') return $raw;
+          return buildPrefill($base, $ex, ['nis' => $nis, 'nama' => $nama, 'kelas' => $kelas, 'mapel' => (string)$ex['mapel']]);
+        };
+        audit($nis, 'EXAM_UNKICK', $id);
+        out(['sukses' => true, 'link' => $mkLinkK(), 'mapel' => $ex['mapel'], 'durasi' => (int)$ex['durasi'], 'endTime' => (int)$kicked['end_ms']]);
+      }
       // ✅ RE-ENTRY LOCK: app keluar saat ujian (Home/Overview/recent apps) → wajib kode unlock admin untuk lanjut
       if (!empty($req['reentryCode'])) {
         $inp = strtoupper(trim((string)$req['reentryCode']));

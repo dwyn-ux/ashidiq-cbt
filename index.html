@@ -1609,7 +1609,7 @@
       const kirim = async (kode) => await callAPI({ action: 'mulaiUjian', nis: sessionUser.nis, nama: sessionUser.nama, kelas: sessionUser.kelas, idUjian: id, inputToken: t, reentryCode: kode || '' });
       const tampilBoxKode = (on) => { const b = document.getElementById('re-'+id); if(b) b.classList.toggle('hidden', !on); };
       let res = await kirim(kodeRetry || '');
-      if(!res.sukses && (res.kode === 'REENTRY_REQUIRED' || res.kode === 'REENTRY_INVALID') && !kodeRetry) {
+      if(!res.sukses && (res.kode === 'REENTRY_REQUIRED' || res.kode === 'REENTRY_INVALID' || res.kode === 'KICKED_REQUIRED' || res.kode === 'KICKED_INVALID') && !kodeRetry) {
         err.innerText = "* " + res.pesan; err.classList.remove('hidden');
         tampilBoxKode(true);
         return;
@@ -1638,7 +1638,7 @@
           tampilkanSiapBuka(res.link);
       } else {
         err.innerText = "* " + res.pesan; err.classList.remove('hidden');
-        if(res.kode === 'REENTRY_INVALID') tampilBoxKode(true);
+        if(res.kode === 'REENTRY_INVALID' || res.kode === 'KICKED_INVALID') tampilBoxKode(true);
         // Kalau ada flag keluar-app saat ujian, coba clear bila sesi lama sudah tidak aktif
         try {
           if (sessionStorage.getItem('cbt_reentry') === '1') {
