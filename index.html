@@ -98,6 +98,7 @@
         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-2">DASHBOARD</p>
         <button onclick="switchAdminTab('tab-monitoring')" id="btn-tab-monitoring" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium bg-blue-600/20 text-blue-400"><i class="fas fa-desktop w-4"></i> Live Monitor</button>
         <button onclick="switchAdminTab('tab-unlock-codes')" id="btn-tab-unlock-codes" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800 text-red-400"><i class="fas fa-lock-open w-4"></i> Kode Unlock</button>
+        <button onclick="switchAdminTab('tab-rekap-curang')" id="btn-tab-rekap-curang" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800 text-amber-400"><i class="fas fa-user-shield w-4"></i> Rekap Curang</button>
         <button onclick="switchAdminTab('tab-data-santri')" id="btn-tab-data-santri" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-users-cog w-4"></i> Data Santri</button>
         <button onclick="switchAdminTab('tab-data-ujian')" id="btn-tab-data-ujian" class="w-full text-left p-3 rounded-xl transition flex items-center gap-3 text-sm font-medium hover:bg-slate-800"><i class="fas fa-clipboard-list w-4"></i> Data Mapel</button>
 
@@ -224,6 +225,38 @@
               </ol>
             </div>
           </div>
+        </div>
+
+        <!-- TAB REKAP CURANG & TERKUNCI -->
+        <div id="tab-rekap-curang" class="admin-tab-content">
+          <h2 class="text-2xl font-black text-slate-800 mb-6 italic tracking-tighter uppercase">Rekap Curang & Terkunci</h2>
+          <div class="grid grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Pelanggar (ada laporan)</p><p class="text-3xl font-black text-amber-600" id="stat-curang">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Terkunci</p><p class="text-3xl font-black text-red-600" id="stat-terkunci">0</p>
+            </div>
+          </div>
+          <div class="flex gap-2 mb-4">
+            <button onclick="loadRekapCurang()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Muat Ulang</button>
+            <input id="search-curang" type="search" oninput="renderRekapCurang()" placeholder="Cari NIS, nama, mapel..." class="flex-1 bg-white border border-slate-200 px-3 py-2 rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+          </div>
+          <h3 class="font-black text-slate-700 mb-2 uppercase text-sm">Kecurangan (per siswa per mapel)</h3>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto mb-6">
+            <table class="w-full text-sm text-left min-w-[720px]">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b"><tr><th class="px-6 py-4">NIS</th><th class="px-6 py-4">Nama / Kelas</th><th class="px-6 py-4">Mapel</th><th class="px-6 py-4 text-center">Jml</th><th class="px-6 py-4">Terakhir</th><th class="px-6 py-4 text-center">Status</th></tr></thead>
+              <tbody id="table-curang-body" class="divide-y divide-slate-50"><tr><td colspan="6" class="p-6 text-center text-slate-400">Belum dimuat.</td></tr></tbody>
+            </table>
+          </div>
+          <h3 class="font-black text-slate-700 mb-2 uppercase text-sm">Terkunci</h3>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm text-left min-w-[720px]">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b"><tr><th class="px-6 py-4">NIS</th><th class="px-6 py-4">Nama / Kelas</th><th class="px-6 py-4">Mapel</th><th class="px-6 py-4">Sebab</th><th class="px-6 py-4">Waktu</th></tr></thead>
+              <tbody id="table-terkunci-body" class="divide-y divide-slate-50"><tr><td colspan="5" class="p-6 text-center text-slate-400">Belum dimuat.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="text-[11px] text-slate-400 font-bold mt-3">Sumber: audit PELANGGARAN (tiap tab-switch tercatat 1x) + sesi Di-Kick + login terkunci 5x. Terkunci otomatis = jml &ge; batas pelanggaran.</p>
         </div>
 
         <!-- TAB DATA SANTRI -->
@@ -729,7 +762,7 @@
     function switchAdminTab(id) {
       document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
       document.getElementById(id).classList.add('active');
-      const btns = ['monitoring','data-santri','data-ujian','cetak-kartu','dokumen','input-santri','input-mapel','generate','setting','unlock-codes'];
+      const btns = ['monitoring','data-santri','data-ujian','cetak-kartu','dokumen','input-santri','input-mapel','generate','setting','unlock-codes','rekap-curang'];
       btns.forEach(b => {
           let btn = document.getElementById('btn-tab-'+b);
           if(!btn) return;
@@ -743,6 +776,7 @@
       if(id === 'tab-input-mapel') loadKelasChecklists();
       if(id === 'tab-generate') loadLinkFormList();
       if(id === 'tab-unlock-codes') { loadViolationSetting(); }
+      if(id === 'tab-rekap-curang') { loadRekapCurang(); }
     }
 
     function setLoginRole(r) {
@@ -940,6 +974,26 @@
           res.forEach(s => { html += `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(s.nis)}</td><td class="px-6 py-4 font-bold text-slate-700">${esc(s.nama)}</td><td class="px-6 py-4">${esc(s.kelas)}</td><td class="px-6 py-4 font-mono font-bold ${s.adaPass ? 'text-green-600' : 'text-red-500'}">${s.adaPass ? 'TERISI' : 'KOSONG'}</td><td class="px-6 py-4 text-center"><button onclick="bukaLoginSantri('${jsq(s.nis)}')" class="bg-green-600 text-white px-3 py-1 rounded shadow text-[10px] font-bold hover:bg-green-700 transition">BUKA LOGIN</button></td></tr>`; });
       }
       document.getElementById('table-santri-body').innerHTML = html;
+    }
+
+    let rekapCurangCache = { curang: [], terkunci: [] };
+    async function loadRekapCurang() {
+      const res = await callAPI({ action: 'getRekapCurang' });
+      rekapCurangCache = { curang: (res && res.curang) || [], terkunci: (res && res.terkunci) || [] };
+      renderRekapCurang();
+    }
+    function renderRekapCurang() {
+      const q = ((document.getElementById('search-curang') || {}).value || '').trim().toLocaleLowerCase('id-ID');
+      const match = (r) => !q || [r.nis, r.nama, r.kelas, r.mapel].some(v => String(v == null ? '' : v).toLocaleLowerCase('id-ID').includes(q));
+      const cur = rekapCurangCache.curang.filter(match);
+      const kun = rekapCurangCache.terkunci.filter(match);
+      document.getElementById('stat-curang').innerText = rekapCurangCache.curang.length;
+      document.getElementById('stat-terkunci').innerText = rekapCurangCache.terkunci.length;
+      document.getElementById('table-curang-body').innerHTML = cur.length ? cur.map(r => {
+        const st = r.terkunci ? '<span class="px-3 py-1 rounded-full text-[10px] font-black text-red-600 bg-red-50">TERKUNCI</span>' : '<span class="px-3 py-1 rounded-full text-[10px] font-black text-amber-600 bg-amber-50">PERINGATAN</span>';
+        return `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(r.nis)}</td><td class="px-6 py-4 font-bold">${esc(r.nama)} <span class="text-[10px] text-slate-400">(${esc(r.kelas)})</span></td><td class="px-6 py-4 text-slate-600">${esc(r.mapel || '-')}</td><td class="px-6 py-4 text-center font-black">${esc(r.jml)}x</td><td class="px-6 py-4 text-xs font-mono text-slate-400">${esc(r.terakhir || '-')}</td><td class="px-6 py-4 text-center">${st}</td></tr>`;
+      }).join('') : '<tr><td colspan="6" class="p-8 text-center text-slate-400">Belum ada laporan kecurangan.</td></tr>';
+      document.getElementById('table-terkunci-body').innerHTML = kun.length ? kun.map(r => `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(r.nis)}</td><td class="px-6 py-4 font-bold">${esc(r.nama)} <span class="text-[10px] text-slate-400">(${esc(r.kelas)})</span></td><td class="px-6 py-4 text-slate-600">${esc(r.mapel || '-')}</td><td class="px-6 py-4 text-red-600 font-bold text-xs">${esc(r.sebab)}</td><td class="px-6 py-4 text-xs font-mono text-slate-400">${esc(r.waktu || '-')}</td></tr>`).join('') : '<tr><td colspan="5" class="p-8 text-center text-slate-400">Tidak ada yang terkunci.</td></tr>';
     }
 
     let dataUjianCache = [];
@@ -2052,10 +2106,14 @@
       if(res.sukses && parseInt(res.limit) > 0) batasPelanggaran = parseInt(res.limit);
     }
 
+    function laporServer(jenis) {
+      try { callAPI({ action: 'laporPelanggaran', mapel: mapelAktif || '', idUjian: idUjianAktif || '', jenis: jenis || 'tab-switch' }); } catch(e) {}
+    }
     function lockExam() {
       isExamLocked = true;
       sessionStorage.setItem('cbt_exam_locked', 'true');
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
+      laporServer('TERKUNCI');
       document.getElementById('lock-violation-count').innerText = pelanggaran;
       document.getElementById('lock-screen').style.display = 'flex';
       setTimeout(() => { try { document.getElementById('unlock-code-input').focus(); } catch(e) {} }, 100);
@@ -2088,6 +2146,8 @@
 
       pelanggaran++;
       sessionStorage.setItem('cbt_total_violations', pelanggaran);
+      laporServer('tab-switch');
+      if(pelanggaran >= batasPelanggaran) { lockExam(); return; }
 
       document.getElementById('violation-count-text').innerText = pelanggaran;
       document.getElementById('violation-limit-text').innerText = batasPelanggaran;
@@ -2095,8 +2155,6 @@
       const w = document.getElementById('violation-warning');
       w.style.display = 'block';
       setTimeout(() => { w.style.display = 'none'; }, 3000);
-
-      if(pelanggaran >= batasPelanggaran) lockExam();
     }
 
     // ✅ FIX KRITIS: blur dari iframe (klik di Google Form) JANGAN dihitung pelanggaran

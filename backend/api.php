@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif','laporPelanggaran','getRekapCurang'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList','getRekapCurang'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -581,6 +581,68 @@ try {
       $inp = strtoupper(trim((string)($req['code'] ?? '')));
       if ($inp === kodeFromSeed_(unlockSeed()) || $inp === kodeFromSeed_(unlockSeed() - 1)) out(['sukses' => true]);
       fail('Kode salah atau kadaluarsa.');
+    }
+
+    case 'laporPelanggaran': {
+      if (($s['role'] ?? '') !== 'siswa') fail('Akses ditolak.', 'FORBIDDEN');
+      $nis = (string)($s['nis'] ?? '');
+      if ($nis === '') fail('Sesi tidak valid.');
+      $mapel = trim((string)($req['mapel'] ?? ''));
+      $idU = strtoupper(trim((string)($req['idUjian'] ?? '')));
+      $jenis = trim((string)($req['jenis'] ?? 'tab-switch'));
+      if (!preg_match('/^[A-Za-z0-9\-_ ]{1,32}$/', $jenis)) $jenis = 'tab-switch';
+      if ($mapel === '' && $idU === '') fail('Data ujian kosong.');
+      if (strlen($mapel) > 128 || strlen($idU) > 32) fail('Data terlalu panjang.');
+      audit($nis, 'PELANGGARAN', $idU . '|' . $mapel . '|' . $jenis);
+      out(['sukses' => true]);
+    }
+
+    case 'getRekapCurang': {
+      $db = db();
+      $lim = max(1, (int)setting('violation_limit', '5'));
+      $logs = $db->query("SELECT actor, detail, ts FROM audit_logs WHERE action = 'PELANGGARAN' ORDER BY id DESC LIMIT 2000")->fetchAll();
+      $agg = [];
+      foreach ($logs as $l) {
+        $actor = (string)($l['actor'] ?? '');
+        if ($actor === '') continue;
+        $parts = explode('|', (string)($l['detail'] ?? ''));
+        $idU = trim($parts[0] ?? '');
+        $mapel = trim($parts[1] ?? '');
+        $jenis = trim($parts[2] ?? '');
+        $k = $actor . "\0" . $idU . "\0" . $mapel;
+        if (!isset($agg[$k])) $agg[$k] = ['nis' => $actor, 'idUjian' => $idU, 'mapel' => $mapel, 'jml' => 0, 'terakhir' => '', 'terkunci' => false];
+        if ($jenis === 'TERKUNCI') $agg[$k]['terkunci'] = true;
+        else $agg[$k]['jml']++;
+        if ((string)$l['ts'] > $agg[$k]['terakhir']) $agg[$k]['terakhir'] = (string)$l['ts'];
+      }
+      foreach ($agg as &$a) if ($a['jml'] >= $lim) $a['terkunci'] = true;
+      unset($a);
+      $kicked = $db->query("SELECT nis, nama, kelas, mapel, exam_id, started_at FROM sessions WHERE status = 'Di-Kick' AND archived_at IS NULL ORDER BY id DESC LIMIT 200")->fetchAll();
+      $loginLock = [];
+      try {
+        $rows = $db->query('SELECT k FROM login_attempts WHERE locked_until > NOW()')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        foreach ($rows as $k) {
+          $k = (string)$k;
+          if (strpos($k, 'sis:') === 0) $loginLock[] = substr($k, 4);
+        }
+      } catch (Throwable $e) {}
+      $niss = array_unique(array_merge(array_column(array_values($agg), 'nis'), array_column($kicked, 'nis'), $loginLock));
+      $info = [];
+      if (count($niss)) {
+        $ph = implode(',', array_fill(0, count($niss), '?'));
+        $st = $db->prepare("SELECT nis, nama, kelas FROM students WHERE nis IN ($ph)");
+        $st->execute(array_values($niss));
+        foreach ($st->fetchAll() as $r) $info[$r['nis']] = $r;
+      }
+      $curang = [];
+      foreach (array_values($agg) as $a) {
+        $curang[] = ['nis' => $a['nis'], 'nama' => $info[$a['nis']]['nama'] ?? '-', 'kelas' => $info[$a['nis']]['kelas'] ?? '-', 'idUjian' => $a['idUjian'], 'mapel' => $a['mapel'], 'jml' => $a['jml'], 'terakhir' => $a['terakhir'], 'terkunci' => $a['terkunci']];
+      }
+      $terkunci = [];
+      foreach ($curang as $c) if ($c['terkunci']) $terkunci[] = ['nis' => $c['nis'], 'nama' => $c['nama'], 'kelas' => $c['kelas'], 'mapel' => $c['mapel'], 'sebab' => 'Pelanggaran ' . $c['jml'] . 'x (otomatis terkunci)', 'waktu' => $c['terakhir']];
+      foreach ($kicked as $k) $terkunci[] = ['nis' => $k['nis'], 'nama' => $k['nama'], 'kelas' => $k['kelas'], 'mapel' => $k['mapel'], 'sebab' => 'Di-Kick admin', 'waktu' => $k['started_at']];
+      foreach ($loginLock as $nis) $terkunci[] = ['nis' => $nis, 'nama' => $info[$nis]['nama'] ?? '-', 'kelas' => $info[$nis]['kelas'] ?? '-', 'mapel' => '-', 'sebab' => 'Login terkunci (5x salah)', 'waktu' => ''];
+      out(['sukses' => true, 'limit' => $lim, 'curang' => array_values($curang), 'terkunci' => array_values($terkunci)]);
     }
 
     // ✅ Re-entry: cek apakah sesi ujian siswa masih aktif (untuk membuka/clear input kode admin di form login)
