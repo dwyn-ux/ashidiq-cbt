@@ -320,14 +320,17 @@ try {
       }
       $rows = db()->query("SELECT id, mapel, kelas_target, durasi, tanggal, mulai, selesai FROM exams WHERE status = 'Aktif'")->fetchAll();
       $out = [];
+      $doneSet = array_flip(array_map('strval', $done));
       foreach ($rows as $r) {
-        if (in_array($r['id'], $done, true)) continue;
         $targets = array_map(fn($k) => trim($k), explode(',', (string)$r['kelas_target']));
         $match = false;
         foreach ($targets as $t) if (kelasCocok($t, $kelas)) { $match = true; break; }
         if (!$match) continue;
         [$now, $mulai, $selesai] = examWindow($r['tanggal'], $r['mulai'], $r['selesai']);
-        if ($now >= $mulai && $now <= $selesai) $out[] = ['idUjian' => $r['id'], 'mapel' => $r['mapel'], 'durasi' => (int)$r['durasi']];
+        if (!($now >= $mulai && $now <= $selesai)) continue;
+        $row = ['idUjian' => $r['id'], 'mapel' => $r['mapel'], 'durasi' => (int)$r['durasi']];
+        if (isset($doneSet[(string)$r['id']])) $row['sudah'] = true;
+        $out[] = $row;
       }
       out(array_values($out));
     }
