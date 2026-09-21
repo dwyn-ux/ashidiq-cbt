@@ -7,11 +7,15 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -24,7 +28,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsClient
@@ -48,10 +54,14 @@ class MainActivity : AppCompatActivity() {
   private lateinit var web: WebView
   private lateinit var splash: View
   private lateinit var splashInfo: TextView
+  private var floatView: View? = null
+  private var floatWm: WindowManager? = null
+  private var lastFormUrl: String = ""
   private val twaMode = "twa".equals(BuildConfig.LAUNCH_MODE, ignoreCase = true)
   private var tabLaunched = false
   // true = siswa sedang mengerjakan soal di Chrome Custom Tab; selama ini kunci ujian & bringBack dimatikan
   private var formTab = false
+  private var openingTab = false
   private var examMode = false
   private lateinit var dpm: DevicePolicyManager
   private lateinit var admin: ComponentName
@@ -88,16 +98,19 @@ class MainActivity : AppCompatActivity() {
     // Link ujian dibuka di Chrome Custom Tab. Semua host HTTPS diizinkan agar aplikasi
     // dapat dipakai sebagai pengunci untuk Google Form, LMS, atau platform ujian lain.
     // Return false = JS pakai fallback (window.open / navigasi penuh).
-    // Header REFRESH + SELESAI milik web ketutup Chrome fullscreen, jadi pasang tombol
-    // native di Chrome: tombol aksi SELESAI di toolbar + menu ⋮ REFRESH / SELESAI.
+    // Header REFRESH + SELESAI milik web ketutup Chrome fullscreen, jadi pasang 2 lapis:
+    // 1) floating overlay native (muncul di atas Chrome) 2) tombol aksi + menu di Custom Tab.
     @JavascriptInterface
     fun openForm(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
       if (u.host.isNullOrBlank()) return false
       if ((u.scheme ?: "") != "https") return false
       val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
+      val main = act as MainActivity
       return try {
-        formTab = true
+        try { main.lastFormUrl = url } catch (e: Exception) { }
+        main.openingTab = true
+        main.formTab = true
         act.runOnUiThread {
           try {
             val refreshIntent = Intent(act, MainActivity::class.java).setAction(ACTION_REFRESH_FORM).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -113,40 +126,62 @@ class MainActivity : AppCompatActivity() {
               c.drawText("✓", size / 2f, size * 0.72f, paint)
               bmp
             } catch (e: Exception) { null }
-            val builder = CustomTabsIntent.Builder().setShowTitle(true).setUrlBarHidingEnabled(false)
+            val builder = CustomTabsIntent.Builder()
+              .setShowTitle(true)
+              .setUrlBarHidingEnabled(false)
+              .setToolbarColor(android.graphics.Color.WHITE)
             builder.addMenuItem("REFRESH SOAL", refreshPi)
             builder.addMenuItem("SELESAI - KEMBALI KE APP", donePi)
             if (icon != null) builder.setActionButton(icon, "SELESAI", donePi, true)
             val tabs = builder.build()
             tabs.intent.setPackage(pkg)
-            tabs.launchUrl(act, u)
-          } catch (e: Exception) { formTab = false }
+            Handler(Looper.getMainLooper()).postDelayed({
+              try {
+                main.formTab = true
+                main.openingTab = false
+                tabs.launchUrl(act, u)
+                try { main.showFloatButtons() } catch (e: Exception) { }
+              } catch (e: Exception) { main.formTab = false; main.openingTab = false }
+            }, 600)
+          } catch (e: Exception) { main.formTab = false; main.openingTab = false }
         }
         true
-      } catch (e: Exception) { formTab = false; false }
+      } catch (e: Exception) { main.formTab = false; main.openingTab = false; false }
     }
 
-    // Tombol "BUKA LOGIN GOOGLE": dibuka di Chrome (Custom Tab) seperti soal,
-    // supaya login + verifikasi 2 langkah bisa jalan. WebView.loadUrl TIDAK dipakai:
-    // cookie store WebView terpisah + Google blokir sign-in di WebView (disallowed_useragent).
+    // Tombol "BUKA LOGIN GOOGLE": dibuka di Chrome PENUH (bukan Custom Tab) supaya
+    // halaman login Google pasti render (Custom Tab kadang tampil hitam/blank untuk
+    // myaccount.google.com). Profil & cookie Chrome tetap sama, jadi login terbawa ke soal.
+    // WebView.loadUrl TIDAK dipakai: cookie store WebView terpisah + Google blokir
+    // sign-in di WebView (disallowed_useragent).
     @JavascriptInterface
     fun openLogin(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
       val host = u.host ?: return false
       if ((u.scheme ?: "") != "https") return false
       if (loginHosts.none { host == it || host.endsWith(".$it") }) return false
-      val pkg = try { CustomTabsClient.getPackageName(act, tabPackages) } catch (e: Exception) { null } ?: return false
+      val main = act as MainActivity
       return try {
-        formTab = true
+        main.openingTab = true
+        main.formTab = true
         act.runOnUiThread {
-          try {
-            val tabs = CustomTabsIntent.Builder().setShowTitle(false).setUrlBarHidingEnabled(true).build()
-            tabs.intent.setPackage(pkg)
-            tabs.launchUrl(act, u)
-          } catch (e: Exception) { formTab = false }
+          // Jeda: guard bringBack/immersive jalan tiap 500ms, beri waktu Chrome tampil dulu.
+          Handler(Looper.getMainLooper()).postDelayed({
+            try {
+              val i = Intent(Intent.ACTION_VIEW, u).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+              try {
+                val pkg = CustomTabsClient.getPackageName(act, tabPackages)
+                if (pkg != null) i.setPackage(pkg)
+              } catch (e: Exception) { }
+              act.startActivity(i)
+            } catch (e: Exception) {
+              main.formTab = false
+              main.openingTab = false
+            }
+          }, 600)
         }
         true
-      } catch (e: Exception) { formTab = false; false }
+      } catch (e: Exception) { main.formTab = false; main.openingTab = false; false }
     }
   }
 
@@ -161,6 +196,63 @@ class MainActivity : AppCompatActivity() {
   }
 
   private fun isOwner(): Boolean = try { dpm.isDeviceOwnerApp(packageName) } catch (e: Exception) { false }
+
+  fun showFloatButtons() {
+    hideFloatButtons()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+      try {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean("float_perm_asked", false)) {
+          prefs.edit().putBoolean("float_perm_asked", true).apply()
+          startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+      } catch (e: Exception) { }
+      return
+    }
+    try {
+      val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+      floatWm = wm
+      val dp = resources.displayMetrics.density
+      val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+      fun btn(label: String, color: Int, fn: () -> Unit): Button {
+        return Button(this).apply {
+          text = label
+          setTextColor(android.graphics.Color.WHITE)
+          setBackgroundColor(color)
+          textSize = 14f
+          setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
+          setOnClickListener { fn() }
+        }
+      }
+      bar.addView(btn("REFRESH", 0xFFB45309.toInt()) {
+        val url = lastFormUrl
+        if (url.isNotEmpty()) { try { Bridge(this).openForm(url) } catch (e: Exception) { } }
+      })
+      bar.addView(btn("SELESAI UJIAN", 0xFF15803D.toInt()) {
+        hideFloatButtons()
+        bringBack()
+        try { web.evaluateJavascript("if (typeof tampilkanOverlaySelesai === 'function') tampilkanOverlaySelesai();", null) } catch (e: Exception) { }
+      })
+      val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+      val params = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        type,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        PixelFormat.TRANSLUCENT
+      ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = (24 * dp).toInt() }
+      wm.addView(bar, params)
+      floatView = bar
+    } catch (e: Exception) { }
+  }
+
+  fun hideFloatButtons() {
+    try {
+      val v = floatView
+      if (v != null) floatWm?.removeView(v)
+    } catch (e: Exception) { }
+    floatView = null
+  }
 
   @SuppressLint("SetJavaScriptEnabled")
   override fun onCreate(b: Bundle?) {
@@ -319,6 +411,7 @@ class MainActivity : AppCompatActivity() {
   private fun setExamModeInternal(on: Boolean) {
     examMode = on
     setExcludeRecents(on) // sembunyikan dari Recent Apps selama ujian
+    if (!on) { try { hideFloatButtons() } catch (e: Exception) { } }
     try {
       if (!on) { try { getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { } }
       if (on) {
@@ -361,6 +454,7 @@ class MainActivity : AppCompatActivity() {
         }
         ACTION_SHOW_DONE -> {
           setIntent(Intent(intent).setAction(null))
+          try { hideFloatButtons() } catch (e: Exception) { }
           try { web.evaluateJavascript("if (typeof tampilkanOverlaySelesai === 'function') tampilkanOverlaySelesai();", null) } catch (e: Exception) { }
         }
       }
@@ -368,6 +462,7 @@ class MainActivity : AppCompatActivity() {
     // Siswa kembali dari Chrome → buka kunci pelanggaran & minta fullscreen lagi
     if (formTab) {
       formTab = false
+      try { hideFloatButtons() } catch (e: Exception) { }
       try { web.evaluateJavascript("if (typeof kembaliDariFormChrome === 'function') kembaliDariFormChrome();", null) } catch (e: Exception) { }
     }
   }
@@ -379,12 +474,12 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onPause() {
-    if (!twaMode && examMode && !formTab) bringBack()
+    if (!twaMode && examMode && !formTab && !openingTab) bringBack()
     super.onPause()
   }
 
   override fun onUserLeaveHint() {
-    if (!twaMode && examMode && !formTab) bringBack()
+    if (!twaMode && examMode && !formTab && !openingTab) bringBack()
   }
 
   override fun onBackPressed() {
@@ -399,6 +494,7 @@ class MainActivity : AppCompatActivity() {
 
   override fun onDestroy() {
     try { guard.removeCallbacks(guardRun) } catch (e: Exception) { }
+    try { hideFloatButtons() } catch (e: Exception) { }
     super.onDestroy()
   }
 }
