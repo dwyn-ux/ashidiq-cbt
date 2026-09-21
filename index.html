@@ -577,6 +577,7 @@
             </div>
             <!-- ✅ OVERLAY SELESAI SUBMIT -->
             <div id="overlay-selesai" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.92); z-index:60; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(8px);">
+              <button type="button" onclick="tutupOverlaySelesai()" title="Batal, kembali mengerjakan" aria-label="Tutup" class="absolute top-4 right-4 w-11 h-11 bg-white/10 hover:bg-red-500 text-white rounded-full font-black text-xl transition">✕</button>
               <div class="text-center px-8 w-full max-w-md">
                 <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
                   <i class="fas fa-check text-white text-5xl"></i>
@@ -1827,6 +1828,15 @@
       pelanggaran  = 0;
     }
 
+    function tutupOverlaySelesai() {
+      if(sedangMenyelesaikan) return;
+      const overlay = document.getElementById('overlay-selesai');
+      if(overlay) overlay.style.display = 'none';
+      const inp = document.getElementById('konfirmasi-selesai');
+      if(inp) inp.value = '';
+      cekKonfirmasiSelesai();
+    }
+
     function cekKonfirmasiSelesai() {
       const inp = document.getElementById('konfirmasi-selesai');
       const btn = document.getElementById('btn-konfirmasi-selesai');
@@ -1886,7 +1896,7 @@
       setTimeout(() => {
         sedangMenyelesaikan = false;
         document.getElementById('overlay-selesai').style.display = 'none';
-        document.getElementById('overlay-selesai').innerHTML = `<div class="text-center px-8 w-full max-w-md">
+        document.getElementById('overlay-selesai').innerHTML = `<button type="button" onclick="tutupOverlaySelesai()" title="Batal, kembali mengerjakan" aria-label="Tutup" class="absolute top-4 right-4 w-11 h-11 bg-white/10 hover:bg-red-500 text-white rounded-full font-black text-xl transition">✕</button><div class="text-center px-8 w-full max-w-md">
           <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
             <i class="fas fa-check text-white text-5xl"></i>
           </div>
