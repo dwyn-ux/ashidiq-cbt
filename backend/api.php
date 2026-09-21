@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -475,6 +475,52 @@ try {
       $st->execute([(string)($req['nis'] ?? ''), (string)($req['mapel'] ?? '')]);
       if ($st->rowCount() > 0) { audit($s['nama'] ?? '', 'FORCE_LOGOUT', (string)($req['nis'] ?? '')); out(['sukses' => true, 'pesan' => 'Siswa berhasil dikeluarkan!']); }
       fail('Siswa tidak sedang ujian.');
+    }
+
+    case 'kelolaSesi': {
+      $db = db();
+      $nis = strtoupper(trim((string)($req['nis'] ?? '')));
+      $mapel = trim((string)($req['mapel'] ?? ''));
+      $aksi = strtolower(trim((string)($req['aksi'] ?? '')));
+      if ($nis === '' || $mapel === '') fail('NIS dan mapel wajib diisi.');
+      if (!in_array($aksi, ['kick', 'pulihkan', 'selesaikan', 'reset'], true)) fail('Aksi tidak dikenal.');
+      $st = $db->prepare("SELECT id, exam_id, end_ms, status FROM sessions WHERE nis = ? AND mapel = ? AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
+      $st->execute([$nis, $mapel]);
+      $row = $st->fetch();
+      if (!$row) fail('Tidak ada sesi aktif untuk siswa ini.');
+      $id = (int)$row['id'];
+      $actor = (string)($s['nama'] ?? $s['nis'] ?? 'admin');
+      if ($aksi === 'kick') {
+        if ($row['status'] !== 'Sedang Mengerjakan') fail('Hanya sesi Sedang Mengerjakan yang bisa di-kick.');
+        $db->prepare("UPDATE sessions SET status = 'Di-Kick' WHERE id = ?")->execute([$id]);
+        audit($actor, 'FORCE_LOGOUT', "$nis $mapel");
+        out(['sukses' => true, 'pesan' => 'Siswa di-kick. Masuk lagi wajib kode unlock.']);
+      }
+      if ($aksi === 'pulihkan') {
+        if (!in_array($row['status'], ['Di-Kick'], true)) fail('Hanya sesi Di-Kick yang bisa dipulihkan (= setujui lanjut).');
+        $db->prepare("UPDATE sessions SET status = 'Sedang Mengerjakan', last_seen = ? WHERE id = ?")->execute([(int)(microtime(true) * 1000), $id]);
+        audit($actor, 'SESSION_RESTORE', "$nis $mapel");
+        out(['sukses' => true, 'pesan' => 'Sesi disetujui & dipulihkan. Siswa lanjut tanpa kode.']);
+      }
+      if ($aksi === 'selesaikan') {
+        if (in_array($row['status'], ['Selesai', 'Terlambat'], true)) fail('Sesi sudah selesai.');
+        $telat = (int)($row['end_ms'] ?? 0) > 0 && (int)(microtime(true) * 1000) > (int)$row['end_ms'] + 60000;
+        $db->prepare($telat ? 'UPDATE sessions SET status = "Terlambat" WHERE id = ?' : 'UPDATE sessions SET status = "Selesai" WHERE id = ?')->execute([$id]);
+        audit($actor, 'EXAM_FINISH_ADMIN', "$nis $mapel" . ($telat ? ' TERLAMBAT' : ''));
+        out(['sukses' => true, 'pesan' => $telat ? 'Sesi diselesaikan (Terlambat).' : 'Sesi diselesaikan. Jatah 1x hangus.']);
+      }
+      $db->prepare('UPDATE sessions SET status = "Dibatalkan", archived_at = NOW() WHERE id = ?')->execute([$id]);
+      audit($actor, 'SESSION_RESET', "$nis $mapel");
+      out(['sukses' => true, 'pesan' => 'Sesi di-reset. Siswa dapat jatah baru dari awal.']);
+    }
+
+    case 'bukaLogin': {
+      $db = db();
+      $nis = strtoupper(trim((string)($req['nis'] ?? '')));
+      if ($nis === '') fail('NIS wajib diisi.');
+      $db->prepare('DELETE FROM login_attempts WHERE k = ?')->execute(['sis:' . $nis]);
+      audit((string)($s['nama'] ?? $s['nis'] ?? 'admin'), 'LOGIN_UNLOCK', $nis);
+      out(['sukses' => true, 'pesan' => "Login $nis dibuka. Siswa bisa login ulang."]);
     }
 
     case 'getUnlockCode': {

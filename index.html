@@ -147,14 +147,15 @@
               <button onclick="refreshAdminData()" id="btn-refresh" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md text-sm hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Refresh Monitoring</button>
               <button onclick="bersihkanLog()" id="btn-clear-log" class="bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-md text-sm hover:bg-red-600 transition"><i class="fas fa-trash-alt mr-1"></i> Bersihkan Log Monitor</button>
           </div>
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <table class="w-full text-sm text-left">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm text-left min-w-[720px]">
               <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b">
                 <tr><th class="px-6 py-4">Waktu</th><th class="px-6 py-4">Nama (NIS)</th><th class="px-6 py-4">Mapel</th><th class="px-6 py-4 text-center">Status / Aksi</th></tr>
               </thead>
               <tbody id="table-log-body" class="divide-y divide-slate-50"></tbody>
             </table>
           </div>
+          <p class="text-[11px] text-slate-400 font-bold mt-3">KICK = hentikan, wajib kode unlock untuk masuk lagi. PULIHKAN = lanjut tanpa kode. SELESAIKAN = akhiri, jatah 1x hangus. RESET = beri jatah baru dari awal.</p>
         </div>
 
         <!-- ✅ TAB KODE UNLOCK -->
@@ -231,12 +232,13 @@
              <button onclick="loadDataSantri()" id="btn-load-santri" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 transition"><i class="fas fa-sync mr-1"></i> Muat Ulang</button>
              <button id="btn-auto-pass" onclick="bulkGenerate('generateAllPasswords')" class="bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-amber-600 transition"><i class="fas fa-key mr-1"></i> Auto Generate Password Kosong</button>
           </div>
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <table class="w-full text-sm text-left">
-              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b"><tr><th class="px-6 py-4">NIS</th><th class="px-6 py-4">Nama Lengkap</th><th class="px-6 py-4">Kelas</th><th class="px-6 py-4">Password</th></tr></thead>
-              <tbody id="table-santri-body" class="divide-y divide-slate-50"><tr><td colspan="4" class="p-6 text-center text-slate-400">Loading...</td></tr></tbody>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm text-left min-w-[640px]">
+              <thead class="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase border-b"><tr><th class="px-6 py-4">NIS</th><th class="px-6 py-4">Nama Lengkap</th><th class="px-6 py-4">Kelas</th><th class="px-6 py-4">Password</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead>
+              <tbody id="table-santri-body" class="divide-y divide-slate-50"><tr><td colspan="5" class="p-6 text-center text-slate-400">Loading...</td></tr></tbody>
             </table>
           </div>
+          <p class="text-[11px] text-slate-400 font-bold mt-3">BUKA LOGIN = reset kunci gagal login 5x, santri bisa login ulang.</p>
         </div>
 
         <!-- TAB DATA UJIAN — ✅ Kolom Nilai ditambah -->
@@ -879,8 +881,12 @@
       if(res.logKehadiran && res.logKehadiran.length > 0) {
         res.logKehadiran.forEach(l => {
           let c = l.status === 'Selesai' ? 'text-green-600 bg-green-50' : (l.status === 'Di-Kick' ? 'text-red-600 bg-red-50' : (l.status === 'Terlambat' ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'));
-          let btnKick = (l.status === 'Sedang Mengerjakan') ? `<button onclick="kickSiswa('${jsq(l.nis)}', '${jsq(l.mapel)}')" class="bg-red-500 text-white px-3 py-1 rounded shadow text-[10px] ml-2 font-bold hover:bg-red-600 transition">KICK</button>` : '';
-          html += `<tr class="border-b hover:bg-slate-50 transition"><td class="px-6 py-4 text-xs font-mono text-slate-400">${esc(l.waktu)}</td><td class="px-6 py-4 font-bold">${esc(l.nama)} <span class="text-[10px] text-slate-400">(${esc(l.nis)})</span></td><td class="px-6 py-4 text-slate-600">${esc(l.mapel)}</td><td class="px-6 py-4 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black ${c}">${esc(l.status)}</span>${btnKick}</td></tr>`;
+          const b = (label, aksi, cls) => `<button onclick="kelolaSesi('${jsq(l.nis)}', '${jsq(l.mapel)}', '${aksi}')" class="${cls} text-white px-3 py-1 rounded shadow text-[10px] ml-1 font-bold transition">${label}</button>`;
+          let aksi = '';
+          if (l.status === 'Sedang Mengerjakan') aksi = b('KICK', 'kick', 'bg-red-500 hover:bg-red-600') + b('SELESAIKAN', 'selesaikan', 'bg-green-600 hover:bg-green-700') + b('RESET', 'reset', 'bg-slate-500 hover:bg-slate-600');
+          else if (l.status === 'Di-Kick') aksi = b('PULIHKAN', 'pulihkan', 'bg-blue-600 hover:bg-blue-700') + b('SELESAIKAN', 'selesaikan', 'bg-green-600 hover:bg-green-700') + b('RESET', 'reset', 'bg-slate-500 hover:bg-slate-600');
+          else if (l.status === 'Selesai' || l.status === 'Terlambat') aksi = b('RESET', 'reset', 'bg-slate-500 hover:bg-slate-600');
+          html += `<tr class="border-b hover:bg-slate-50 transition"><td class="px-6 py-4 text-xs font-mono text-slate-400">${esc(l.waktu)}</td><td class="px-6 py-4 font-bold">${esc(l.nama)} <span class="text-[10px] text-slate-400">(${esc(l.nis)})</span></td><td class="px-6 py-4 text-slate-600">${esc(l.mapel)}</td><td class="px-6 py-4 text-center whitespace-nowrap"><span class="px-3 py-1 rounded-full text-[10px] font-black ${c}">${esc(l.status)}</span><span class="inline-block mt-1">${aksi}</span></td></tr>`;
         });
       } else { html = '<tr><td colspan="4" class="p-8 text-center text-slate-400">Belum ada aktivitas.</td></tr>'; }
       document.getElementById('table-log-body').innerHTML = html; 
@@ -897,15 +903,29 @@
       if(res.sukses) refreshAdminData();
     }
 
-    async function kickSiswa(nis, mapel) { 
-        if(confirm("Yakin ingin menendang keluar siswa ini?")) { await callAPI({ action: 'forceLogout', nis: nis, mapel: mapel }); refreshAdminData(); } 
+    async function kickSiswa(nis, mapel) {
+        if(confirm("Yakin ingin menendang keluar siswa ini?")) { await callAPI({ action: 'forceLogout', nis: nis, mapel: mapel }); refreshAdminData(); }
+    }
+
+    async function kelolaSesi(nis, mapel, aksi) {
+      const tanya = { kick: `Kick ${nis} (${mapel})?\nMasuk lagi wajib kode unlock.`, pulihkan: `Setujui & pulihkan ${nis} (${mapel})?\nSiswa lanjut tanpa kode.`, selesaikan: `Selesaikan ${nis} (${mapel})?\nJatah 1x hangus.`, reset: `Reset ${nis} (${mapel})?\nSiswa dapat jatah baru dari awal.` };
+      if(!confirm(tanya[aksi] || 'Yakin?')) return;
+      const res = await callAPI({ action: 'kelolaSesi', nis: nis, mapel: mapel, aksi: aksi });
+      alert(res.pesan || (res.sukses ? 'Berhasil.' : 'Gagal.'));
+      refreshAdminData();
+    }
+
+    async function bukaLoginSantri(nis) {
+      if(!confirm(`Buka kunci login ${nis}?\nSantri bisa login ulang.`)) return;
+      const res = await callAPI({ action: 'bukaLogin', nis: nis });
+      alert(res.pesan || (res.sukses ? 'Berhasil.' : 'Gagal.'));
     }
 
     async function loadDataSantri() {
       const res = await callAPI({ action: 'getSantriData' });
       let html = '';
       if(Array.isArray(res) && res.length > 0) {
-          res.forEach(s => { html += `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(s.nis)}</td><td class="px-6 py-4 font-bold text-slate-700">${esc(s.nama)}</td><td class="px-6 py-4">${esc(s.kelas)}</td><td class="px-6 py-4 font-mono font-bold ${s.adaPass ? 'text-green-600' : 'text-red-500'}">${s.adaPass ? 'TERISI' : 'KOSONG'}</td></tr>`; });
+          res.forEach(s => { html += `<tr class="border-b hover:bg-slate-50"><td class="px-6 py-4 font-mono text-xs">${esc(s.nis)}</td><td class="px-6 py-4 font-bold text-slate-700">${esc(s.nama)}</td><td class="px-6 py-4">${esc(s.kelas)}</td><td class="px-6 py-4 font-mono font-bold ${s.adaPass ? 'text-green-600' : 'text-red-500'}">${s.adaPass ? 'TERISI' : 'KOSONG'}</td><td class="px-6 py-4 text-center"><button onclick="bukaLoginSantri('${jsq(s.nis)}')" class="bg-green-600 text-white px-3 py-1 rounded shadow text-[10px] font-bold hover:bg-green-700 transition">BUKA LOGIN</button></td></tr>`; });
       }
       document.getElementById('table-santri-body').innerHTML = html;
     }
