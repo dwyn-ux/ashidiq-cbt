@@ -511,7 +511,7 @@ try {
       }
       $db->prepare('UPDATE sessions SET status = "Dibatalkan", archived_at = NOW() WHERE id = ?')->execute([$id]);
       audit($actor, 'SESSION_RESET', "$nis $mapel");
-      out(['sukses' => true, 'pesan' => 'Sesi di-reset. Siswa dapat jatah baru dari awal.']);
+      out(['sukses' => true, 'pesan' => 'Jawaban di-reset. Siswa wajib isi Google Form dari awal lalu kirim ulang, lalu akhiri sesi di aplikasi.']);
     }
 
     case 'bukaLogin': {
