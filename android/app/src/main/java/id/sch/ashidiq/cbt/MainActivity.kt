@@ -95,6 +95,9 @@ class MainActivity : AppCompatActivity() {
       try { act.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("escape_pending", false).apply() } catch (e: Exception) { }
     }
 
+    @JavascriptInterface
+    fun getAppKey(): String = try { BuildConfig.APP_KEY } catch (e: Exception) { "" }
+
     // Link ujian dibuka di Chrome Custom Tab. Semua host HTTPS diizinkan agar aplikasi
     // dapat dipakai sebagai pengunci untuk Google Form, LMS, atau platform ujian lain.
     // Return false = JS pakai fallback (window.open / navigasi penuh).

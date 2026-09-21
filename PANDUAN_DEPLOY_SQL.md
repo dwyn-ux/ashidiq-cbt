@@ -13,7 +13,7 @@ Sumber: `backend/` (API), `index.html` (frontend). Tidak perlu Apps Script / Spr
 
 ## 2. Backend (upload 2 file)
 
-1. Edit `backend/config.php`: isi `DB_HOST, DB_NAME, DB_USER, DB_PASS` sesuai langkah 1. Zona waktu sudah `Asia/Jakarta` di file.
+1. Edit `backend/config.php`: isi `DB_HOST, DB_NAME, DB_USER, DB_PASS` sesuai langkah 1. Isi `APP_KEY` dengan kunci acak 48-hex (contoh: `openssl rand -hex 24`), samakan ke `android/local.properties` (`APP_KEY=...`) lalu build ulang APK. Tanpa kunci cocok, login siswa ditolak (`APP_ONLY`); web hanya untuk admin/proktor. Zona waktu sudah `Asia/Jakarta` di file.
 2. Upload ke hosting dengan struktur tetap:
    ```
    /cbt/index.html

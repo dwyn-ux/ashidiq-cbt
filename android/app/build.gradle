@@ -2,6 +2,9 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "id.sch.ashidiq.cbt"
 compileSdk = 36
+    def appKeyProps = new Properties()
+    try { def f = file("../local.properties"); if (f.exists()) { f.withInputStream { appKeyProps.load(it) } } } catch (Exception ignored) {}
+    def appKeyVal = appKeyProps.getProperty("APP_KEY", System.getenv("ASHIDIQ_APP_KEY") ?: "")
     defaultConfig {
       applicationId = "com.ashidiq.test"
       minSdk = 26
@@ -10,6 +13,7 @@ compileSdk = 36
         versionName = "1.11"
         buildConfigField("String", "API_URL", "\"https://cbt.smpmuashidiq.sch.id/backend/api.php\"")
         buildConfigField("String", "WEB_URL", "\"https://cbt.smpmuashidiq.sch.id/index.html\"")
+        buildConfigField("String", "APP_KEY", "\"" + appKeyVal + "\"")
         // "webview" = HYBRID (dipakai sekarang): halaman ujian di WebView dalam app supaya lockdown penuh
         //         (FLAG_SECURE, kunci JS, re-entry code) tetap jalan, tapi Google Form-nya dititipkan ke
         //         Chrome lewat tombol "BUKA SOAL DI CHROME" agar memakai profil & akun Google HP.

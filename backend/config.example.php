@@ -8,6 +8,9 @@ const DB_NAME = 'cbt_ashidiq';
 const DB_USER = 'isi-user-db';
 const DB_PASS = 'isi-password-kuat';
 const SESSION_TTL = 7200;
+// Kunci wajib aplikasi siswa — samakan dengan APP_KEY di android/app/build.gradle.
+// Login/aksi siswa tanpa kunci ini ditolak; web hanya untuk admin.
+const APP_KEY = 'isi-kunci-acak-min-16-karakter-sama-dengan-apk';
 
 function db(): PDO {
   static $p = null;

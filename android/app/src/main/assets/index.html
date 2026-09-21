@@ -725,10 +725,12 @@
       return (s == null ? '' : String(s)).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
     function authToken() { try { const s = JSON.parse(sessionStorage.getItem('cbt_session') || '{}'); return s.token || ''; } catch(e) { return ''; } }
+    function isApk() { try { return !!(window.Android && window.Android.getAppKey && window.Android.getAppKey()); } catch(e) { return false; } }
+    function appKey() { try { return (window.Android && window.Android.getAppKey) ? (window.Android.getAppKey() || '') : ''; } catch(e) { return ''; } }
 
     async function callAPI(payload) {
       try {
-        const body = Object.assign({}, payload, { token: authToken() });
+        const body = Object.assign({}, payload, { token: authToken(), appKey: appKey() });
         const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
         const textData = await res.text();
         let j;
@@ -806,6 +808,12 @@
     }
 
     function renderSession(res) {
+        if(res.role !== 'admin' && res.role !== 'proktor' && !isApk()) {
+            sessionStorage.clear(); sessionUser = null; switchView('view-login');
+            document.getElementById('login-error').innerText = 'Siswa wajib lewat aplikasi. Web khusus Admin/Proktor.';
+            document.getElementById('login-error').classList.remove('hidden');
+            return;
+        }
         sessionUser = res;
         currentRole = res.role;
         if(res.role === 'admin' || res.role === 'proktor') { 
@@ -879,6 +887,11 @@
       const u = document.getElementById('username').value;
       const p = document.getElementById('password').value;
       if(!u || !p) return alert("Isi data form login!");
+      if(currentRole !== 'admin' && !isApk()) {
+        document.getElementById('login-error').innerText = 'Siswa wajib lewat aplikasi. Web khusus Admin/Proktor.';
+        document.getElementById('login-error').classList.remove('hidden');
+        return;
+      }
       let kodeReentry = '';
       if(sessionStorage.getItem('cbt_reentry') === '1') {
         tampilkanInputKode(true);

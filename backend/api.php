@@ -20,6 +20,16 @@ $action = (string)($req['action'] ?? '');
 $MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif','laporPelanggaran','getRekapCurang'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
+function clientAppKey(array $req): string {
+  $h = $_SERVER['HTTP_X_APP_KEY'] ?? '';
+  if ($h !== '') return trim((string)$h);
+  return trim((string)($req['appKey'] ?? ''));
+}
+function requireAppKey(array $req): void {
+  if (!defined('APP_KEY') || APP_KEY === '' || APP_KEY === 'isi-kunci-acak-min-16-karakter-sama-dengan-apk') fail('Server belum dikonfigurasi.', 'SERVER_MISCONFIG');
+  if (!hash_equals(APP_KEY, clientAppKey($req))) fail('Ujian hanya bisa lewat aplikasi resmi.', 'APP_ONLY');
+}
+
 $ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList','getRekapCurang'];
 
 function sess(string $token): ?array {
@@ -32,6 +42,7 @@ function sess(string $token): ?array {
 }
 
 $s = ($action === 'login') ? null : sess((string)($req['token'] ?? ''));
+if ($action !== 'login' && $s && ($s['role'] ?? '') === 'siswa') requireAppKey($req);
 if ($action !== 'login' && !$s) fail('Sesi habis, login ulang.', 'UNAUTHORIZED');
 if (in_array($action, $ADMIN_ONLY, true) && !($s && in_array($s['role'], ['admin','proktor'], true))) fail('Akses ditolak.', 'FORBIDDEN');
 if ($action === 'generateAllPasswords' || $action === 'generateAllTokens' || $action === 'tambahData' || $action === 'bulkSantri' || $action === 'bulkMapel' || $action === 'editMapel' || $action === 'updateSetting' || $action === 'clearLog') {
@@ -87,7 +98,8 @@ function sessionExamId(PDO $db, array $req, string $nis): string {
 }
 
 // ---------- auth ----------
-function login(string $u, string $p, string $r) {
+function login(string $u, string $p, string $r, array $req) {
+  if ($r !== 'admin') requireAppKey($req);
   $db = db();
   $key = ($r === 'admin' ? 'adm:' : 'sis:') . trim($u);
   $st = $db->prepare('SELECT fails, locked_until FROM login_attempts WHERE k = ?');
@@ -259,7 +271,7 @@ function detectEntries(string $url): array {
 
 try {
   switch ($action) {
-    case 'login': login((string)($req['username'] ?? ''), (string)($req['password'] ?? ''), (string)($req['role'] ?? 'siswa'));
+    case 'login': login((string)($req['username'] ?? ''), (string)($req['password'] ?? ''), (string)($req['role'] ?? 'siswa'), $req);
 
     case 'getDashboard': {
       $db = db();

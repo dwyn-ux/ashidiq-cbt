@@ -9,6 +9,7 @@ object Api {
     val c = (URL(apiUrl).openConnection() as HttpURLConnection).apply {
       requestMethod = "POST"; connectTimeout = 15000; readTimeout = 20000
       setRequestProperty("Content-Type", "application/json")
+      try { setRequestProperty("X-App-Key", BuildConfig.APP_KEY) } catch (e: Exception) { }
       doOutput = true
     }
     c.outputStream.use { it.write(payload.toString().toByteArray()) }
