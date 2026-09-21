@@ -2,6 +2,7 @@ package id.sch.ashidiq.cbt
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -87,6 +88,8 @@ class MainActivity : AppCompatActivity() {
     // Link ujian dibuka di Chrome Custom Tab. Semua host HTTPS diizinkan agar aplikasi
     // dapat dipakai sebagai pengunci untuk Google Form, LMS, atau platform ujian lain.
     // Return false = JS pakai fallback (window.open / navigasi penuh).
+    // Header REFRESH + SELESAI milik web ketutup Chrome fullscreen, jadi pasang tombol
+    // native di Chrome: tombol aksi SELESAI di toolbar + menu ⋮ REFRESH / SELESAI.
     @JavascriptInterface
     fun openForm(url: String): Boolean {
       val u = try { android.net.Uri.parse(url) } catch (e: Exception) { null } ?: return false
@@ -97,7 +100,24 @@ class MainActivity : AppCompatActivity() {
         formTab = true
         act.runOnUiThread {
           try {
-            val tabs = CustomTabsIntent.Builder().setShowTitle(false).setUrlBarHidingEnabled(true).build()
+            val refreshIntent = Intent(act, MainActivity::class.java).setAction(ACTION_REFRESH_FORM).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val refreshPi = PendingIntent.getActivity(act, 1002, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val doneIntent = Intent(act, MainActivity::class.java).setAction(ACTION_SHOW_DONE).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val donePi = PendingIntent.getActivity(act, 1003, doneIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val icon = try {
+              val size = (48 * act.resources.displayMetrics.density).toInt()
+              val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+              val c = android.graphics.Canvas(bmp)
+              c.drawColor(0xFF15803D.toInt())
+              val paint = android.graphics.Paint().apply { color = android.graphics.Color.WHITE; textSize = size * 0.6f; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true }
+              c.drawText("✓", size / 2f, size * 0.72f, paint)
+              bmp
+            } catch (e: Exception) { null }
+            val builder = CustomTabsIntent.Builder().setShowTitle(true).setUrlBarHidingEnabled(false)
+            builder.addMenuItem("REFRESH SOAL", refreshPi)
+            builder.addMenuItem("SELESAI - KEMBALI KE APP", donePi)
+            if (icon != null) builder.setActionButton(icon, "SELESAI", donePi, true)
+            val tabs = builder.build()
             tabs.intent.setPackage(pkg)
             tabs.launchUrl(act, u)
           } catch (e: Exception) { formTab = false }
@@ -133,6 +153,8 @@ class MainActivity : AppCompatActivity() {
   companion object {
     private const val PREFS = "cbt_lock"
     private const val CHROME_PKG = "com.android.chrome"
+    const val ACTION_REFRESH_FORM = "id.sch.ashidiq.cbt.REFRESH_FORM"
+    const val ACTION_SHOW_DONE = "id.sch.ashidiq.cbt.SHOW_DONE"
     private val loginHosts = listOf("myaccount.google.com", "accounts.google.com")
     // Urutan preferensi browser yang mendukung TWA / Custom Tabs
     private val tabPackages = listOf("com.android.chrome", "com.chrome.beta", "com.android.chrome.beta", "com.chrome.dev")
@@ -330,11 +352,30 @@ class MainActivity : AppCompatActivity() {
   override fun onResume() {
     super.onResume()
     immersive()
+    // Aksi dari tombol Custom Tab (menu/tombol aksi di Chrome)
+    try {
+      when (intent?.action) {
+        ACTION_REFRESH_FORM -> {
+          setIntent(Intent(intent).setAction(null))
+          try { web.evaluateJavascript("if (typeof refreshSoalUjian === 'function') refreshSoalUjian();", null) } catch (e: Exception) { }
+        }
+        ACTION_SHOW_DONE -> {
+          setIntent(Intent(intent).setAction(null))
+          try { web.evaluateJavascript("if (typeof tampilkanOverlaySelesai === 'function') tampilkanOverlaySelesai();", null) } catch (e: Exception) { }
+        }
+      }
+    } catch (e: Exception) { }
     // Siswa kembali dari Chrome → buka kunci pelanggaran & minta fullscreen lagi
     if (formTab) {
       formTab = false
       try { web.evaluateJavascript("if (typeof kembaliDariFormChrome === 'function') kembaliDariFormChrome();", null) } catch (e: Exception) { }
     }
+  }
+
+  override fun onNewIntent(i: Intent) {
+    super.onNewIntent(i)
+    try { setIntent(i) } catch (e: Exception) { }
+    try { onResume() } catch (e: Exception) { }
   }
 
   override fun onPause() {

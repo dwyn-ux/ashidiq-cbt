@@ -22,6 +22,13 @@
     ::-webkit-scrollbar-track { background: #f1f1f1; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
+    /* HEADER UJIAN FULLSCREEN */
+    #header-ujian { position: sticky; top: 0; z-index: 50; background: #fff; }
+    #exam-actionbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 70; display: none; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(255,255,255,.98); border-top: 2px solid #e2e8f0; box-shadow: 0 -8px 24px rgba(0,0,0,.12); }
+    #frame-soal { width: 100%; height: calc(100dvh - 300px); min-height: 420px; border: 0; background: #fff; display: block; }
+    #area-soal { padding-bottom: 76px; }
+    #overlay-selesai { position: fixed !important; z-index: 80 !important; }
+
     /* OVERLAY PELANGGARAN */
     #violation-warning { position: fixed; top: 20px; right: 20px; z-index: 9999; background: linear-gradient(135deg, #dc2626, #ef4444); color: white; padding: 16px 24px; border-radius: 16px; box-shadow: 0 8px 32px rgba(220, 38, 38, 0.4); font-weight: 900; display: none; animation: slideIn 0.3s ease-out; }
     @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -523,15 +530,15 @@
       </div>
       
       <div id="siswa-tahap-ujian" class="hidden h-full flex flex-col">
-        <div class="sticky top-0 flex justify-between items-center bg-white p-4 rounded-t-2xl border border-b-0 shadow-sm mb-1 relative z-20">
-          <div class="flex items-center gap-2 sm:gap-4 min-w-0">
-             <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition ml-2 p-2 bg-slate-100 rounded relative z-50 cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
+        <div id="header-ujian" class="sticky top-0 flex justify-between items-center bg-white p-3 rounded-t-2xl border border-b-0 shadow-sm mb-1 z-50">
+          <div class="flex items-center gap-2 min-w-0">
+             <button type="button" onclick="bukaTutupMenuSiswa()" class="text-slate-400 hover:text-blue-600 transition p-2 bg-slate-100 rounded relative cursor-pointer"><i class="fas fa-bars text-lg"></i></button>
               <div class="min-w-0"><h2 class="font-black text-blue-600 uppercase italic truncate" id="judul-mapel-ujian" onclick="ketukJudul()" style="cursor:pointer" title="MAPEL">MAPEL</h2>
               <p class="text-[10px] font-bold text-slate-500 truncate" id="identitas-ujian"></p></div>
           </div>
-          <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-            <button type="button" onclick="refreshSoalUjian()" title="Refresh soal di Chrome" aria-label="Refresh soal" class="h-10 shrink-0 flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 rounded-xl border border-slate-200 transition font-black text-xs"><i class="fas fa-sync-alt"></i><span class="hidden sm:inline"> REFRESH</span></button>
-            <button type="button" onclick="tampilkanOverlaySelesai()" title="Selesaikan ujian" aria-label="Selesaikan ujian" class="h-10 shrink-0 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl font-black text-xs transition"><i class="fas fa-flag-checkered"></i><span class="hidden sm:inline"> SELESAI</span></button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" id="btn-header-refresh" onclick="refreshSoalUjian()" title="Refresh soal di Chrome" aria-label="Refresh soal" class="h-12 flex items-center gap-1 bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 rounded-xl border-2 border-amber-600 transition font-black text-sm">⟳ REFRESH</button>
+            <button type="button" id="btn-header-selesai" onclick="tampilkanOverlaySelesai()" title="Selesaikan ujian" aria-label="Selesaikan ujian" class="h-12 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-4 rounded-xl border-2 border-green-800 transition font-black text-sm">✓ SELESAI</button>
             <div id="timer-box" class="h-10 flex items-center bg-blue-100 text-blue-700 px-2 sm:px-4 rounded-xl font-mono font-black text-base sm:text-lg shadow-inner border border-blue-200 transition-colors duration-300">
                <i class="fas fa-stopwatch mr-2 hidden sm:inline"></i><span id="waktu-mundur">--:--</span>
             </div>
@@ -554,15 +561,12 @@
           <button onclick="batalUjian()" class="mt-2 text-xs font-bold opacity-80 underline">Batalkan & kembali ke daftar</button>
         </div>
         <div id="info-form-chrome" style="display:none" class="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-2 mb-2 text-[11px] font-bold text-blue-700">
-          <i class="fas fa-info-circle mr-1"></i> Soal terbuka di <b>Chrome</b>. Kembali ke Chrome untuk mengisi. Selesai & Submit → tekan <b>Back HP</b> → klik tombol hijau di bawah.
+          <i class="fas fa-info-circle mr-1"></i> Soal tampil di bawah. Isi sampai Submit. Timer jalan terus.
         </div>
-        <button id="btn-buka-ulang" onclick="refreshSoalUjian()" style="display:none" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-sync-alt mr-2"></i> REFRESH / BUKA ULANG SOAL</button>
-        <div id="area-soal" style="display:none" class="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 text-center">
-          <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fas fa-external-link-alt"></i></div>
-          <p class="font-black text-slate-700 mb-1">SOAL DIKERJAKAN DI CHROME</p>
-          <p class="text-xs text-slate-500 mb-4">Isi & Submit di Chrome. Panel ini untuk timer, status, dan tombol selesai.</p>
-          <button onclick="refreshSoalUjian()" class="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-xl text-xs transition"><i class="fas fa-sync-alt mr-2"></i> REFRESH SOAL</button>
-          <p id="status-chrome" class="text-[11px] font-bold text-slate-400 mt-3">Menunggu kembali dari Chrome...</p>
+        <button id="btn-buka-ulang" onclick="refreshSoalUjian()" style="display:none" class="mb-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-2xl shadow-lg transition text-xs tracking-wider"><i class="fas fa-sync-alt mr-2"></i> REFRESH SOAL</button>
+        <div id="area-soal" style="display:none" class="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden relative">
+          <iframe id="frame-soal" title="Soal ujian" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"></iframe>
+          <p id="status-chrome" class="text-[11px] font-bold text-slate-400 px-4 py-2">Soal dimuat di dalam aplikasi.</p>
             <div id="time-blocker">
                 <h1>WAKTU UJIAN HABIS</h1>
                 <p class="text-white text-sm mt-2 font-bold text-center">Buka kembali link ujian di Chrome, selesaikan atau kirim jawaban, lalu kembali ke aplikasi.</p>
@@ -591,6 +595,14 @@
       </div>
     </main>
   </section>
+
+  <!-- ACTIONBAR BAWAH: selalu muncul saat ujian, anti ketutup scroll/fullscreen -->
+  <div id="exam-actionbar">
+    <div class="flex gap-2 max-w-3xl mx-auto">
+      <button type="button" onclick="refreshSoalUjian()" class="flex-1 h-14 bg-amber-400 hover:bg-amber-500 text-slate-900 rounded-xl border-2 border-amber-600 font-black text-base transition">⟳ REFRESH</button>
+      <button type="button" onclick="tampilkanOverlaySelesai()" class="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white rounded-xl border-2 border-green-800 font-black text-base transition">✓ SELESAI</button>
+    </div>
+  </div>
 
   <!-- MODAL EDIT MAPEL -->
   <div id="modal-edit-mapel" class="hidden fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center backdrop-blur-sm">
@@ -801,6 +813,7 @@
                   document.getElementById('info-form-chrome').style.display = 'block';
                   document.getElementById('btn-buka-ulang').style.display = 'block';
                   document.getElementById('area-soal').style.display = 'block';
+                  if (butuhChrome()) bukaSoalChrome(); else muatSoalKeFrame();
                   jalankanTimer();
                   paksaFullscreen();
                 } else {
@@ -1482,21 +1495,61 @@
       else window.location.href = url;
     }
 
+    function butuhChrome(host) {
+      try {
+        const h = (host || new URL(sessionStorage.getItem('cbt_link_soal') || '').hostname).toLowerCase();
+        return h === 'docs.google.com' || h === 'forms.gle' || h === 'forms.google.com' || h === 'accounts.google.com';
+      } catch(e) { return false; }
+    }
+
+    function bukaChromeNative(url) {
+      if (window.Android && typeof window.Android.openForm === 'function') {
+        try { if (window.Android.openForm(url)) return true; } catch(e) {}
+      }
+      return false;
+    }
+
+    function muatSoalKeFrame() {
+      const url = sessionStorage.getItem('cbt_link_soal') || '';
+      const fr = document.getElementById('frame-soal');
+      const st = document.getElementById('status-chrome');
+      if (!url || !fr) return false;
+      tabFormChrome = false;
+      try { fr.src = url; } catch(e) {}
+      const b = document.getElementById('info-form-chrome');
+      if (b) { b.style.display = 'block'; b.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Soal tampil di bawah. Isi sampai Submit.'; }
+      if (st) st.innerText = 'Soal dimuat di dalam aplikasi. Tombol REFRESH / SELESAI selalu di atas & bawah.';
+      const ab = document.getElementById('exam-actionbar');
+      if (ab) ab.style.display = 'block';
+      return true;
+    }
+
+    function bukaSoalChrome() {
+      const url = sessionStorage.getItem('cbt_link_soal') || '';
+      if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return false; }
+      if (bukaChromeNative(url)) {
+        tabFormChrome = true;
+        const b = document.getElementById('info-form-chrome');
+        if (b) { b.style.display = 'block'; b.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i> Soal butuh login Google — dibuka di <b>Chrome</b>. Isi & Submit → tekan <b class="text-green-700">✓ SELESAI di toolbar Chrome</b> / menu ⋮ → <b>SELESAI</b> untuk kembali.'; }
+        const st = document.getElementById('status-chrome');
+        if (st) st.innerText = 'Soal dibuka di Chrome. Pakai tombol SELESAI di toolbar Chrome / menu ⋮.';
+        const ab = document.getElementById('exam-actionbar');
+        if (ab) ab.style.display = 'block';
+        return true;
+      }
+      return muatSoalKeFrame();
+    }
+
     function bukaFormDiChrome() {
       const url = sessionStorage.getItem('cbt_link_soal') || '';
       if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
-      if (window.Android && typeof window.Android.openForm === 'function' && window.Android.openForm(url)) {
-        tabFormChrome = true;
-        const b = document.getElementById('info-form-chrome');
-        if (b) { b.style.display = 'block'; b.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i> Soal terbuka di <b>Chrome</b>. Selesai mengisi & Submit → tekan <b>Back HP</b> untuk kembali ke sini.'; }
-        return;
-      }
-      // Browser biasa / APK lama: tab baru, fallback navigasi penuh bila popup diblokir
-      tabFormChrome = false;
-      var w = null;
-      try { w = window.open(url, '_blank'); } catch(e) { w = null; }
-      if (w) { try { w.opener = null; } catch(e) {} }
-      else window.location.href = url;
+      if (butuhChrome()) { bukaSoalChrome(); return; }
+      muatSoalKeFrame();
+    }
+
+    function sembunyiActionbar() {
+      const ab = document.getElementById('exam-actionbar');
+      if (ab) ab.style.display = 'none';
     }
 
     function refreshHalamanUjian() {
@@ -1511,7 +1564,10 @@
     function refreshSoalUjian() {
       const url = sessionStorage.getItem('cbt_link_soal') || '';
       if (!url) { alert('Link soal belum tersedia. Hubungi proktor.'); return; }
-      bukaFormDiChrome();
+      if (tabFormChrome || butuhChrome()) { bukaSoalChrome(); return; }
+      const fr = document.getElementById('frame-soal');
+      if (fr && fr.src) { try { fr.src = fr.src; } catch(e) {} return; }
+      muatSoalKeFrame();
     }
 
     function tampilkanSiapBuka(link) {
@@ -1546,7 +1602,8 @@
     function soalTerbuka() {
       const link = sessionStorage.getItem('cbt_link_soal') || '';
       if(!link) { alert('Link soal belum tersedia.'); return; }
-      if(!confirm('Mulai ujian sekarang?\n\nTimer akan berjalan, aplikasi dikunci, lalu soal dibuka di Chrome.')) return;
+      const gc = butuhChrome();
+      if(!confirm(gc ? 'Mulai ujian sekarang?\n\nTimer jalan, aplikasi dikunci, soal Google dibuka di Chrome (wajib login Google). Tombol SELESAI ada di toolbar Chrome + menu.' : 'Mulai ujian sekarang?\n\nTimer jalan, aplikasi dikunci, soal tampil di bawah.')) return;
       document.getElementById('siap-buka').style.display = 'none';
       document.getElementById('info-form-chrome').style.display = 'block';
       document.getElementById('btn-buka-ulang').style.display = 'block';
@@ -1555,7 +1612,7 @@
       jalankanTimer();
       startDeteksiSubmit();
       try { paksaFullscreen(); } catch(e) {}
-      bukaFormDiChrome();
+      if (gc) bukaSoalChrome(); else muatSoalKeFrame();
     }
 
     // Status kunci perangkat: Device Owner = Home/Recents/app lain benar-benar diblokir.
@@ -1657,6 +1714,8 @@
         if(sessionUser && idUjianAktif) await callAPI({ action: 'batalUjian', idUjian: idUjianAktif });
       } catch(e) {}
       tutupPintu();
+      sembunyiActionbar();
+      try { const fr0 = document.getElementById('frame-soal'); if(fr0) fr0.src = 'about:blank'; } catch(e) {}
       lepasKunciAPK();
       try { if(document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
       clearInterval(timerInterval);
@@ -1768,6 +1827,8 @@
       // Bersihkan session ujian
       clearInterval(timerInterval);
       tutupPintu();
+      sembunyiActionbar();
+      try { const fr = document.getElementById('frame-soal'); if(fr) fr.src = 'about:blank'; } catch(e) {}
       sessionStorage.removeItem('cbt_timer_end');
       sessionStorage.removeItem('cbt_mapel_aktif');
       sessionStorage.removeItem('cbt_id_ujian');
