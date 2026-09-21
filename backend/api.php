@@ -17,10 +17,10 @@ $req = array_merge($_GET, $_POST, is_array($body) ? $body : []);
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $raw !== '';
 $action = (string)($req['action'] ?? '');
 
-$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
+$MUST_POST = ['login','mulaiUjian','selesaiUjian','batalUjian','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','heartbeat','validateUnlock','logout','generateAllPasswords','generateAllTokens','setUnlockInterval','setViolationLimit','editMapel','clearLog','setFormUrl','detectFormEntries','getKelasList','cekSesiAktif'];
 if (in_array($action, $MUST_POST, true) && !$isPost) fail('Gunakan POST.', 'METHOD_NOT_ALLOWED');
 
-$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
+$ADMIN_ONLY = ['getDashboard','getSantriData','getAllMapel','generateAllPasswords','generateAllTokens','tambahData','bulkSantri','bulkMapel','updateSetting','forceLogout','kelolaSesi','selesaikanMassal','bukaLogin','editMapel','getDokumenData','clearLog','getUnlockCode','setUnlockInterval','setViolationLimit','setFormUrl','detectFormEntries','getKelasList'];
 
 function sess(string $token): ?array {
   if (!$token) return null;
@@ -521,6 +521,42 @@ try {
       $db->prepare('DELETE FROM login_attempts WHERE k = ?')->execute(['sis:' . $nis]);
       audit((string)($s['nama'] ?? $s['nis'] ?? 'admin'), 'LOGIN_UNLOCK', $nis);
       out(['sukses' => true, 'pesan' => "Login $nis dibuka. Siswa bisa login ulang."]);
+    }
+
+    case 'selesaikanMassal': {
+      $db = db();
+      $actor = (string)($s['nama'] ?? $s['nis'] ?? 'admin');
+      $pairs = $req['pairs'] ?? null;
+      if (is_array($pairs) && count($pairs)) {
+        $st = $db->prepare("SELECT id, end_ms, status FROM sessions WHERE nis = ? AND mapel = ? AND archived_at IS NULL ORDER BY id DESC LIMIT 1");
+        $n = 0;
+        $nowMs = (int)(microtime(true) * 1000);
+        foreach ($pairs as $p) {
+          if (!is_array($p)) continue;
+          $nis = strtoupper(trim((string)($p['nis'] ?? '')));
+          $mapel = trim((string)($p['mapel'] ?? ''));
+          if ($nis === '' || $mapel === '') continue;
+          $st->execute([$nis, $mapel]);
+          $row = $st->fetch();
+          if (!$row || in_array($row['status'], ['Selesai', 'Terlambat'], true)) continue;
+          $telat = (int)($row['end_ms'] ?? 0) > 0 && $nowMs > (int)$row['end_ms'] + 60000;
+          $db->prepare($telat ? 'UPDATE sessions SET status = "Terlambat" WHERE id = ?' : 'UPDATE sessions SET status = "Selesai" WHERE id = ?')->execute([(int)$row['id']]);
+          $n++;
+        }
+        audit($actor, 'EXAM_FINISH_MASSAL', "$n sesi dipilih");
+        out(['sukses' => true, 'pesan' => "$n sesi diselesaikan. Jatah 1x hangus."]);
+      }
+      $rows = $db->query("SELECT id, end_ms FROM sessions WHERE status IN ('Sedang Mengerjakan', 'Di-Kick') AND archived_at IS NULL")->fetchAll();
+      $n = 0;
+      $nowMs = (int)(microtime(true) * 1000);
+      $upd = $db->prepare('UPDATE sessions SET status = ? WHERE id = ?');
+      foreach ($rows as $row) {
+        $telat = (int)($row['end_ms'] ?? 0) > 0 && $nowMs > (int)$row['end_ms'] + 60000;
+        $upd->execute([$telat ? 'Terlambat' : 'Selesai', (int)$row['id']]);
+        $n++;
+      }
+      audit($actor, 'EXAM_FINISH_MASSAL', "$n sesi aktif");
+      out(['sukses' => true, 'pesan' => "$n sesi aktif diselesaikan. Jatah 1x hangus."]);
     }
 
     case 'getUnlockCode': {
